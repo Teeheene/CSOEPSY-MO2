@@ -6,7 +6,11 @@ public:
 	int pid;
 	string pname;
 	size_t pc = 0;
+	int totalInstr;
 	bool sleeping = false;
+	vector<ProcessLogEntry> logHistory;
+
+	mutable mutex mtx;
 	
 private:
 	//private details
@@ -21,53 +25,96 @@ public:
 	Process(string name = "") {
 		pid = nextPid.fetch_add(1);
 		if(name.empty()) {
-			pname = "PROC-" + pid;
+			pname = "PROC-" + to_string(pid);
 		}
 	}
 
-	void decode(const string&);
+	//run1 instr
+	void runCycle(Dispatcher*, int);
+
+	//exec
 	uint16_t processArg(const string&);
-	void execute(Instruction, Dispatcher*);
+	void decode(const string&);
+	string execute(Instruction, Dispatcher*);
+
+	//instr 
 	Instruction getInstruction();
-	void debug();
 	bool hasInstructions();
 	bool isFinished();
-	void runCycle(Dispatcher*);
+	int countInstructions(const vector<Instruction>&);
+	
+	//sleep
 	void handleSleep(Dispatcher*, int);
+	
+	//logs
+	void log(int, string);
+	void smi();
+	string toStringRecentTimeLog();
 };
 
-bool Process::isFinished() {
-	return !hasInstructions();
+string Process::toStringRecentTimeLog() {
+	lock_guard<mutex> lock(mtx);
+	time_t timestamp = time(nullptr);
+
+	if(logHistory.empty()) {
+		char strTime[100];
+		tm* translTimestamp = localtime(&timestamp);
+		strftime(strTime, sizeof(strTime), "%m/%d/%Y %I:%M:%S%p", translTimestamp);
+
+		return "(" + string(strTime) + ")";
+	} else {
+		return logHistory.back().toStringTimestamp();
+	}
 }
 
-void Process::runCycle(Dispatcher* dispatcher) {
+void Process::log(int id, string out) {
+	if(out.empty()) return; 
+	lock_guard<mutex> lock(mtx);
+	ProcessLogEntry entry(pid, id, out);
+	logHistory.push_back(entry);
+}
+
+void Process::runCycle(Dispatcher* dispatcher, int coreId) {
 	if(hasInstructions()) {
-		execute(getInstruction(), dispatcher);
+		string out = execute(getInstruction(), dispatcher);
 		pc++;
+		log(coreId, out);
 	}
 }
 
-void Process::debug() {
-	for(Instruction i : instructions) {
-		i.debug();
-	}
-	cout << "  <PROCESS VARIABLES>" << endl;
-	for (const auto& [key, value] : variables) {
-      cout << "  " << key << " = " << value << endl;
-	}
-	cout << endl;
+Instruction Process::getInstruction() {
+	Instruction instr = instructions.front();
+	instructions.erase(instructions.begin());
+	return instr;
 }
 
-void Process::decode(const string& src) {
-	stringstream ss(src);
-	string instr;
+bool Process::isFinished() {
+	if(pc < totalInstr) return false;
+	return true;
+}
 
-	int i = 1;
-	while(getline(ss, instr, ';')) {
-		trim(instr);
-		if(instr.empty()) continue;
-		instructions.push_back(parseInstruction(instr));
+bool Process::hasInstructions() {
+	if(instructions.empty())
+		return false;
+	return true;
+}
+
+void Process::smi() {
+	cout << "Process name: " << pname << endl;
+	cout << "ID: " << pid << endl;
+
+	cout << "Logs: " << endl;
+
+	{
+		lock_guard<mutex> lock(mtx);
+		for(auto l : logHistory) {
+			l.print();
+		}
 	}
+
+	cout << endl; 
+	cout << "Current instruction line: " << pc << endl;
+	cout << "Lines of code: " << totalInstr << endl;
 }
 
 // checks to see if its a variable or value
@@ -80,18 +127,57 @@ uint16_t Process::processArg(const string& arg) {
 	}
 }
 
-void Process::execute(Instruction instr, Dispatcher* dispatcher = nullptr) {
+// Count instructions in a vector, expanding FORs recursively
+int Process::countInstructions(const vector<Instruction> &instrs) {
+    int total = 0;
+
+    for (const Instruction &instr : instrs) {
+        if (instr.type == OpCode::FOR) {
+			  total++;
+            if (instr.args.size() < 2) continue; // skip malformed
+
+            const string &innerStr = instr.args[0];
+            uint16_t loopCount = processArg(instr.args[1]); // or 0 if unavailable
+            if (loopCount == 0) continue;
+
+            vector<Instruction> innerInstrs = parseInstructionArray(innerStr);
+            int innerCount = countInstructions(innerInstrs); // recursive
+
+            total += loopCount * innerCount;
+        } else {
+            total += 1;
+        }
+    }
+
+    return total;
+}
+
+void Process::decode(const string& src) {
+	stringstream ss(src);
+	string instr;
+
+	int i = 1;
+	while(getline(ss, instr, ';')) {
+		trim(instr);
+		if(instr.empty()) continue;
+		instructions.push_back(parseInstruction(instr));
+	}
+
+	totalInstr = countInstructions(instructions);
+}	
+
+string Process::execute(Instruction instr, Dispatcher* dispatcher = nullptr) {
 	switch(instr.type) {
 
 	case OpCode::PRINT: {
-		// ive yet to implement the logs for process
-		// so it only prints it for now when testing
-		cout << "{PRINT INSTR}" << instr.args[0]; 
+		string out;
+
+		out = instr.args[0]; 
 		if(instr.args.size() < 2)
-			cout << " from process " << pid << endl;
+			out += " from process " + to_string(pid);
 		else
-			cout << processArg(instr.args[1]) << endl;
-		break;
+			out += to_string(processArg(instr.args[1]));
+		return out;
 	}
 		
 	case OpCode::DECLARE: {		
@@ -178,18 +264,7 @@ void Process::execute(Instruction instr, Dispatcher* dispatcher = nullptr) {
 	default: break;
 
 	}
-}
 
-Instruction Process::getInstruction() {
-	Instruction instr = instructions.front();
-	instructions.erase(instructions.begin());
-	return instr;
+	return "";
 }
-
-bool Process::hasInstructions() {
-	if(instructions.empty())
-		return false;
-	return true;
-}
-
 

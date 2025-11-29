@@ -22,6 +22,7 @@ using namespace std;
 #include "instructions/OpCode.hpp"
 #include "instructions/Instruction.hpp"
 #include "instructions/Parser.hpp"
+#include "Logger.hpp"
 #include "Process.hpp"
 #include "Dispatcher.hpp"
 /***************************/
@@ -62,7 +63,8 @@ int main() {
 	deez.addProcess(p3);
 
 	while(true) {
-		deez.showFinished();
+		//demo ls function of dispatcher
+		deez.ls();
 		this_thread::sleep_for(chrono::milliseconds(1000));
 	}
 }
