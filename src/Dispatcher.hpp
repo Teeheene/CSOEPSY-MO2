@@ -21,17 +21,14 @@ public:
 		nCores(cores), mode(m), quantum(q) {}
 
 	void run();
-	void addProcess(shared_ptr<Process>)
+	void addProcess(shared_ptr<Process>);
 	void sleepProcess(shared_ptr<Process>, int);
 	void showFinished();
 
 private:
 	void coreLoop();
-	void wakeSleepingProcess();
+	void wakeSleepingProcesses();
 };
-
-Dispatcher::run();
-Dispatcher::addProcess();
 
 void Dispatcher::run() {
 	vector<thread> cores;
@@ -116,7 +113,7 @@ void Dispatcher::wakeSleepingProcesses() {
 	}
 }
 
-
+// sleep helper to connect dispatcher and proc
 void Process::handleSleep(Dispatcher* dispatcher, int ms) {
 	sleeping = true;
 	if(dispatcher)

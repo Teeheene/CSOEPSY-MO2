@@ -23,6 +23,7 @@ using namespace std;
 #include "instructions/Instruction.hpp"
 #include "instructions/Parser.hpp"
 #include "Process.hpp"
+#include "Dispatcher.hpp"
 /***************************/
 
 /*
