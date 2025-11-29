@@ -1,18 +1,51 @@
-class Process {
+class Dispatcher; // forward declare
+
+class Process : public enable_shared_from_this<Process> {
+public:
+	//public details
+	int pid;
+	string pname;
+	size_t pc = 0;
+	bool sleeping = false;
+	
 private:
+	//private details
+	static inline atomic<int> nextPid = 1;
+
+	//tasks
 	vector<Instruction> instructions;
 	unordered_map<string, uint16_t> variables; // varName, uint16
-	size_t pc = 0;
 	bool running = false;
 
 public:
+	Process(string name = "") {
+		pid = nextPid.fetch_add(1);
+		if(name.empty()) {
+			pname = "PROC-" + pid;
+		}
+	}
+
 	void decode(const string&);
 	uint16_t processArg(const string&);
-	void execute(Instruction);
+	void execute(Instruction, Dispatcher*);
 	Instruction getInstruction();
 	void debug();
 	bool hasInstructions();
+	bool isFinished();
+	void runCycle(Dispatcher*);
+	void handleSleep(Dispatcher*, int);
 };
+
+bool Process::isFinished() {
+	return !hasInstructions();
+}
+
+void Process::runCycle(Dispatcher* dispatcher) {
+	if(hasInstructions()) {
+		execute(getInstruction(), dispatcher);
+		pc++;
+	}
+}
 
 void Process::debug() {
 	for(Instruction i : instructions) {
@@ -47,7 +80,7 @@ uint16_t Process::processArg(const string& arg) {
 	}
 }
 
-void Process::execute(Instruction instr) {
+void Process::execute(Instruction instr, Dispatcher* dispatcher = nullptr) {
 	switch(instr.type) {
 
 	case OpCode::PRINT: {
@@ -55,7 +88,7 @@ void Process::execute(Instruction instr) {
 		// so it only prints it for now when testing
 		cout << "{PRINT INSTR}" << instr.args[0]; 
 		if(instr.args.size() < 2)
-			cout << "from process" << endl;
+			cout << " from process " << pid << endl;
 		else
 			cout << processArg(instr.args[1]) << endl;
 		break;
@@ -71,6 +104,7 @@ void Process::execute(Instruction instr) {
 			value = stringToUint16(instr.args[1]); 
 
 		variables[var] = value;
+
 		break;
 	}
 
@@ -111,7 +145,12 @@ void Process::execute(Instruction instr) {
 	}
 
 	case OpCode::SLEEP: {
-		//to be implemented
+		if(instr.args.empty())
+			throw runtime_error("[ERROR] Missing Arguments, SLEEP requires 1");
+
+		int ms = processArg(instr.args[0]);
+		handleSleep(dispatcher, ms);
+		break;
 	}
 
 	case OpCode::FOR: {
