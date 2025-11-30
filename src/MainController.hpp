@@ -22,6 +22,8 @@ public:
 			getline(cin, rawInput);
 			cmd = tokenizeInput(rawInput);
 
+			if(cmd.empty()) continue;
+
 			if (!initialized)
 			{
 				if (cmd[0] == "initialize")

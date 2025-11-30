@@ -1,3 +1,10 @@
+enum class ProcessState {
+	RUNNING,
+	READY,
+	IDLE,
+	FINISHED 
+};
+
 class Dispatcher; // forward declare
 
 class Process : public enable_shared_from_this<Process> {
@@ -9,6 +16,7 @@ public:
 	int totalInstr;
 	bool sleeping = false;
 	vector<ProcessLogEntry> logHistory;
+	ProcessState state;
 
 	mutex logMtx;
 	mutex mtx;
@@ -23,7 +31,9 @@ private:
 	bool running = false;
 
 public:
-	Process(string name = "") {
+	Process(string name = "") :
+		state(ProcessState::READY)	
+	{
 		pid = nextPid.fetch_add(1);
 		if(name.empty()) {
 			pname = "PROC-" + to_string(pid);
@@ -51,7 +61,21 @@ public:
 	void log(int, string);
 	void smi();
 	string toStringRecentTimeLog();
+	string toStringLogs();
 };
+
+string Process::toStringLogs() {
+	lock_guard<mutex> lock(logMtx);
+
+	if(logHistory.empty()) return "";
+
+	string res = ""; 
+	for(ProcessLogEntry p : logHistory) {
+		res += p.toString();	
+	}
+
+	return res;
+}
 
 string Process::toStringRecentTimeLog() {
 	lock_guard<mutex> lock(logMtx);
@@ -87,6 +111,9 @@ void Process::runCycle(Dispatcher* dispatcher, int coreId) {
 }
 
 Instruction Process::getInstruction() {
+	lock_guard<mutex> lock(mtx);
+	if(instructions.empty())
+		throw runtime_error("ERROR empty instructions");
 	Instruction instr = instructions.front();
 	instructions.erase(instructions.begin());
 	return instr;
@@ -174,6 +201,9 @@ string Process::execute(Instruction instr, Dispatcher* dispatcher = nullptr) {
 	case OpCode::PRINT: {
 		string out;
 
+		if(instr.args.empty())
+			break;
+
 		out = instr.args[0]; 
 		if(instr.args.size() < 2)
 			out += " from process " + to_string(pid);
@@ -183,6 +213,9 @@ string Process::execute(Instruction instr, Dispatcher* dispatcher = nullptr) {
 	}
 		
 	case OpCode::DECLARE: {		
+		if(instr.args.empty())
+			break;
+
 		const string& var = instr.args[0];
 		uint16_t value;
 
@@ -198,7 +231,8 @@ string Process::execute(Instruction instr, Dispatcher* dispatcher = nullptr) {
 
 	case OpCode::ADD: {
 		if(instr.args.size() < 3)
-			throw runtime_error("[ERROR] Missing Arguments, ADD requires 3"); 
+			//throw runtime_error("[ERROR] Missing Arguments, ADD requires 3"); 
+			break;
 
 		const string& dest = instr.args[0];	
 		const string& rawA = instr.args[1];	
@@ -210,7 +244,8 @@ string Process::execute(Instruction instr, Dispatcher* dispatcher = nullptr) {
 		uint32_t sum = static_cast<uint32_t>(a) + static_cast<uint32_t>(b);
 
 		if(sum > UINT16_MAX)
-			throw runtime_error("[ERROR] ADD overflow");
+			//throw runtime_error("[ERROR] ADD overflow");
+			break;
 
 		variables[dest] = static_cast<uint16_t>(sum);
 		break;
@@ -218,7 +253,8 @@ string Process::execute(Instruction instr, Dispatcher* dispatcher = nullptr) {
 
 	case OpCode::SUBTRACT: {
 		if(instr.args.size() < 3)
-			throw runtime_error("[ERROR] Missing Arguments, SUBTRACT requires 3"); 
+			//throw runtime_error("[ERROR] Missing Arguments, SUBTRACT requires 3"); 
+			break;
 
 		const string& dest = instr.args[0];	
 		const string& rawA = instr.args[1];	
@@ -234,8 +270,10 @@ string Process::execute(Instruction instr, Dispatcher* dispatcher = nullptr) {
 
 	case OpCode::SLEEP: {
 		if(instr.args.empty())
-			throw runtime_error("[ERROR] Missing Arguments, SLEEP requires 1");
+			//throw runtime_error("[ERROR] Missing Arguments, SLEEP requires 1");
+			break;
 
+		state = ProcessState::IDLE;
 		int ms = processArg(instr.args[0]);
 		handleSleep(dispatcher, ms);
 		break;
@@ -243,7 +281,8 @@ string Process::execute(Instruction instr, Dispatcher* dispatcher = nullptr) {
 
 	case OpCode::FOR: {
 		if(instr.args.size() < 2)
-			throw runtime_error("[ERROR] Missing Arguments, FOR requires 2");
+			//throw runtime_error("[ERROR] Missing Arguments, FOR requires 2");
+			break;
 
 		const string innerStr = instr.args[0];
 		uint16_t loopCount = processArg(instr.args[1]);
@@ -254,10 +293,13 @@ string Process::execute(Instruction instr, Dispatcher* dispatcher = nullptr) {
 		// 1 cycle, reading for loop
 		vector<Instruction> instrs = parseInstructionArray(innerStr);	
 
+		lock_guard<mutex> lock(mtx);
 		for(int i = 0; i < loopCount; i++) {
-			for(Instruction i : instrs) {
-				instructions.insert(instructions.begin(), i);
-			}
+      	instructions.insert(
+         	instructions.begin(),
+         	std::make_move_iterator(instrs.begin()),
+         	std::make_move_iterator(instrs.end())
+      	);
 		}
 
 		break;

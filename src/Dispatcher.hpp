@@ -5,7 +5,6 @@ struct sleepingProcess {
 
 class Dispatcher {
 private:
-	queue<shared_ptr<Process>> runningQueue;
 	queue<shared_ptr<Process>> readyQueue;
 	queue<shared_ptr<Process>> finishedQueue;
 	vector<sleepingProcess> idleQueue;
@@ -58,10 +57,11 @@ public:
 	void showFinished();
 
 	//for debugging
-	void ls();
 	shared_ptr<Process> searchProcess(string);
+	
+	//feats
 	void enterProcessScreen(string);
-	//implement smi()
+	void ls();
 
 private:
 	void coreLoop(int);
@@ -82,36 +82,144 @@ void Dispatcher::addProcess(shared_ptr<Process> proc) {
 	readyQueue.push(proc);
 }
 
-shared_ptr<Process> Dispatcher::searchProcess(string name) {
+
+
+/*===============================================================*/
+// LOOP FOR CORES
+/*===============================================================*/
+void Dispatcher::coreLoop(int id) {
+	while(true) {
+		shared_ptr<Process> proc = nullptr;
+
+		// lock for waking sleeping processes
+		{
+			lock_guard<mutex> lock(queueMtx);
+			wakeSleepingProcesses();
+			if(!readyQueue.empty()) {
+				proc = readyQueue.front();
+				readyQueue.pop();
+			}
+		}
+
+		//check to see if it should allocate to cores current process
+		{
+			lock_guard<mutex> lock(coreMtx);
+
+			//check status
+			//only READY state processes are allowed to be taken
+			//by core
+			if(!proc) {
+				currentProc[id] = nullptr;
+				this_thread::sleep_for(chrono::milliseconds(5));
+				continue;
+			} else {
+				currentProc[id] = proc;
+				proc->state = ProcessState::RUNNING;
+			}
+		}
+
+		//fetch execution cycle
+		int steps = (mode == Mode::RR) ? quantum : proc->totalInstr;
+		for(int i = 0; i < steps && !proc->isFinished() &&
+				proc->state != ProcessState::IDLE; i++) {
+			proc->runCycle(this, id);
+			this_thread::sleep_for(chrono::milliseconds(execDelay));
+		}
+
+		//update queue after rr or fcfs
+		{
+			lock_guard<mutex> lock(queueMtx);
+
+			//skip sleeping states (not to requeue w rq or fq)
+			if (proc->state == ProcessState::IDLE) continue;
+
+			if (proc->isFinished() && proc->state == ProcessState::RUNNING) {
+				finishedQueue.push(proc);
+
+			} else if(proc->state == ProcessState::RUNNING) {
+				readyQueue.push(proc);
+			}
+		}
+	}
+}
+
+/*===============================================================*/
+// HANDLE SLEEPING PROCESSES
+/*===============================================================*/
+void Dispatcher::wakeSleepingProcesses() {
+	auto now = chrono::steady_clock::now();
+	for (auto it = idleQueue.begin(); it != idleQueue.end();) {
+		if (it->wakeUpTime <= now) {
+			if(it->proc->isFinished()) {
+				if(it->proc->state != ProcessState::FINISHED) {
+					it->proc->state = ProcessState::FINISHED;
+					finishedQueue.push(it->proc);
+				}
+			} else {
+				if(it->proc->state != ProcessState::READY) {
+					it->proc->state = ProcessState::READY;
+					readyQueue.push(it->proc);
+				}
+			}
+			
+			it->proc->sleeping = false;
+			it = idleQueue.erase(it);
+		} else {
+			++it;
+		}
+	}
+}
+
+void Dispatcher::sleepProcess(shared_ptr<Process> proc, int ms) {
 	lock_guard<mutex> lock(queueMtx);
+	idleQueue.push_back(
+		{ proc, chrono::steady_clock::now() + chrono::milliseconds(ms) });
+}
 
-	queue<shared_ptr<Process>> temp = runningQueue;
-   while (!temp.empty()) {
-   	auto &proc = temp.front();
-		cout << proc->pname;
-      temp.pop();
-      if (proc && proc->pname == name)
-         return proc;
-   }
+void Process::handleSleep(Dispatcher* dispatcher, int ms) {
+	sleeping = true;
+	if(dispatcher)
+		dispatcher->sleepProcess(shared_from_this(), ms);
+}
 
-	queue<shared_ptr<Process>> temp1 = readyQueue;
-   while (!temp1.empty()) {
-   	auto &proc = temp1.front();
-		cout << proc->pname;
-      temp1.pop();
-      if (proc && proc->pname == name)
-         return proc;
-   }
+/*===============================================================*/
+// DISPATCHER HELPER 
+/*===============================================================*/
+shared_ptr<Process> Dispatcher::searchProcess(string name) {
+	queue<shared_ptr<Process>> tempRQ;
+	queue<shared_ptr<Process>> tempFQ;
+	vector<shared_ptr<Process>> tempCP;
+	vector<sleepingProcess> tempIQ;
 
-	queue<shared_ptr<Process>> temp2 = finishedQueue;
-	while(!temp2.empty()) {
-		auto &proc = temp2.front();
-		temp2.pop();
-		if(proc && proc->pname == name)
-			return proc;
+	{
+		lock_guard<mutex> lock(queueMtx);
+		tempRQ = readyQueue;
+		tempFQ = finishedQueue;
+		tempCP = currentProc;
+		tempIQ = idleQueue;
 	}
 
-	for(auto &s : idleQueue) {
+   while (!tempRQ.empty()) {
+   	auto &proc = tempRQ.front();
+      if (proc && proc->pname == name)
+         return proc;
+      tempRQ.pop();
+   }
+
+	while(!tempFQ.empty()) {
+		auto &proc = tempFQ.front();
+		if(proc && proc->pname == name)
+			return proc;
+		tempFQ.pop();
+	}
+
+	for(auto proc : tempCP) {
+		if(proc && proc->pname == name) {
+			return proc;
+		}
+	}
+
+	for(auto s : tempIQ) {
 		if(s.proc && s.proc->pname == name) {
 			return s.proc;
 		}
@@ -120,6 +228,9 @@ shared_ptr<Process> Dispatcher::searchProcess(string name) {
 	return nullptr;
 }
 
+/*===============================================================*/
+// REQUIRED FEATURES
+/*===============================================================*/
 void Dispatcher::enterProcessScreen(string procName) {
 	string rawInput;
 	vector<string> cmd;
@@ -140,35 +251,29 @@ void Dispatcher::enterProcessScreen(string procName) {
 		cout << "root:\\> ";
 		getline(cin, rawInput);
 		cmd = tokenizeInput(rawInput);
+		if(cmd.empty()) continue;
 
-		int pc;
-		int totalInstr;
-		vector<ProcessLogEntry> logs;
-		string logToString;
+		if (cmd[0] == "process-smi") {
+			int pc;
+			int totalInstr;
 
-		if (cmd[0] == "process-smi")
-		{
         	{
 				lock_guard<mutex> lock1(proc->mtx);
-				lock_guard<mutex> lock2(proc->logMtx);
-            logToString = "";
-				logs = proc->logHistory;
             pc = proc->pc;
          	totalInstr = proc->totalInstr;
         	}
 
         	cout << "================ PROCESS SCREEN ================" << endl;
-        	cout << "\n\t| Process: " << proc->pname << " | ID: " << proc->pid;
-        	cout << " | " << pc << "/" << totalInstr << " |" << endl;
+        	cout << "Process: " << proc->pname << "\nID: " << proc->pid 
+				<< endl;
       	cout << "\nLogs:\n";
+			cout << proc->toStringLogs();
 
-			for(ProcessLogEntry p : logs) {
-				logToString += p.toString();
-			}
-			cout<< logToString << endl;
+        	cout << "\nInstructions Status: " << pc << " / " << totalInstr << endl;
 
 			if(proc->isFinished())
-				cout << "Finished!" << endl << endl;
+			cout << "Finished!" << endl;
+			cout << "================================================" << endl;
 		} else if (cmd[0] == "exit") {
 			cout << "Returning home..." << endl;
 			break;
@@ -176,131 +281,6 @@ void Dispatcher::enterProcessScreen(string procName) {
 			cout << "Unknown command inside process screen." << endl;
 		}
       
-		cout << "================================================" << endl;
-	}
-}
-
-void Dispatcher::sleepProcess(shared_ptr<Process> proc, int ms) {
-	lock_guard<mutex> lock(queueMtx);
-	idleQueue.push_back(
-		{ proc, chrono::steady_clock::now() + chrono::milliseconds(ms) });
-}
-
-void Dispatcher::coreLoop(int id) {
-	while(true) {
-		shared_ptr<Process> proc = nullptr;
-
-		// lock for waking sleeping processes
-		{
-			lock_guard<mutex> lock(queueMtx);
-			wakeSleepingProcesses();
-			if(!readyQueue.empty()) {
-				proc = readyQueue.front();
-				readyQueue.pop();
-				if (runningQueue.empty() || runningQueue.back() != proc)
-				   runningQueue.push(proc);
-
-			}
-		}
-
-		if(!proc) {
-			lock_guard<mutex> lock(coreMtx);
-			currentProc[id] = nullptr;
-			this_thread::sleep_for(chrono::milliseconds(5));
-			continue;
-		}
-		
-		{
-			lock_guard<mutex> lock(coreMtx);
-			currentProc[id] = proc;
-		}
-
-		//fetch execution cycle
-		int steps = (mode == Mode::RR) ? quantum : proc->totalInstr;
-		for(int i = 0; i < steps && !proc->isFinished(); i++) {
-			proc->runCycle(this, id);
-			this_thread::sleep_for(chrono::milliseconds(10));
-		}
-
-//		//update queue after rr or fcfs
-//		{
-//			lock_guard<mutex> lock(queueMtx);
-//			runningQueue.pop();
-//
-//			if(proc->sleeping) {
-//				//nothing
-//			} else if(proc->isFinished()) {
-//				std::queue<std::shared_ptr<Process>> temp = finishedQueue;
-//				bool exists = false;
-//				while (!temp.empty()) {
-//					 if (temp.front() == proc) { exists = true; break; }
-//					 temp.pop();
-//				}
-//				if (!exists) finishedQueue.push(proc);
-//			} else {
-//				std::queue<std::shared_ptr<Process>> temp = readyQueue;
-//				bool exists = false;
-//				while (!temp.empty()) {
-//					 if (temp.front() == proc) { exists = true; break; }
-//					 temp.pop();
-//				}
-//				if (!exists) readyQueue.push(proc);
-//			}
-//		}
-
-				// update queues safely
-		{
-			lock_guard<mutex> lock(queueMtx);
-
-			// remove from runningQueue ONLY if the front == this proc
-			if (!runningQueue.empty() && runningQueue.front() == proc)
-				runningQueue.pop();
-
-			// handle sleeping
-			if (proc->sleeping) {
-				// do nothing
-			}
-			// handle finished
-			else if (proc->isFinished()) {
-				queue<shared_ptr<Process>> tmp = finishedQueue;
-				bool exists = false;
-				while (!tmp.empty()) {
-					if (tmp.front() == proc) { exists = true; break; }
-					tmp.pop();
-				}
-				if (!exists)
-					finishedQueue.push(proc);
-			}
-			// handle ready
-			else {
-				queue<shared_ptr<Process>> tmp = readyQueue;
-				bool exists = false;
-				while (!tmp.empty()) {
-					if (tmp.front() == proc) { exists = true; break; }
-					tmp.pop();
-				}
-				if (!exists)
-					readyQueue.push(proc);
-			}
-		}
-
-	}
-}
-
-void Dispatcher::wakeSleepingProcesses() {
-	auto now = chrono::steady_clock::now();
-	for (auto it = idleQueue.begin(); it != idleQueue.end();) {
-		if (it->wakeUpTime <= now) {
-			if(it->proc->isFinished())
-				finishedQueue.push(it->proc);
-			else
-				readyQueue.push(it->proc);
-			
-			it->proc->sleeping = false;
-			it = idleQueue.erase(it);
-		} else {
-			++it;
-		}
 	}
 }
 
@@ -349,10 +329,4 @@ void Dispatcher::ls() {
 	cout << "==============================================================" << endl;
 }
 
-// sleep helper to connect dispatcher and proc
-void Process::handleSleep(Dispatcher* dispatcher, int ms) {
-	sleeping = true;
-	if(dispatcher)
-		dispatcher->sleepProcess(shared_from_this(), ms);
-}
 
