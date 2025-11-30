@@ -31,8 +31,7 @@ string generateInstr(int &budget, int depth = 0) {
         if (op == "SUBTRACT")
             return "SUBTRACT " + var + " " + var + " " + to_string(rndInt(1, 50));
         if (op == "SLEEP" && depth == 0)
-         	//return "SLEEP " + to_string(rndInt(50, 500));
-            return "PRINT(\"Hello World\")";
+         	return "SLEEP " + to_string(rndInt(50, 500));
         return "";
     }
 

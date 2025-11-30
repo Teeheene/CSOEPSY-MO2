@@ -168,6 +168,8 @@ void Dispatcher::coreLoop(int id) {
 /*===============================================================*/
 void Dispatcher::wakeSleepingProcesses() {
 	auto now = chrono::steady_clock::now();
+	
+	if(mode == Mode::FCFS) return; 
 
 	lock_guard<mutex> lock(queueMtx);
 	for (auto it = idleQueue.begin(); it != idleQueue.end();) {
