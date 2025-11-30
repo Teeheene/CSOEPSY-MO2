@@ -10,7 +10,8 @@ public:
 	bool sleeping = false;
 	vector<ProcessLogEntry> logHistory;
 
-	mutable mutex mtx;
+	mutex logMtx;
+	mutex mtx;
 	
 private:
 	//private details
@@ -53,7 +54,7 @@ public:
 };
 
 string Process::toStringRecentTimeLog() {
-	lock_guard<mutex> lock(mtx);
+	lock_guard<mutex> lock(logMtx);
 	time_t timestamp = time(nullptr);
 
 	if(logHistory.empty()) {
@@ -69,7 +70,7 @@ string Process::toStringRecentTimeLog() {
 
 void Process::log(int id, string out) {
 	if(out.empty()) return; 
-	lock_guard<mutex> lock(mtx);
+	lock_guard<mutex> lock(logMtx);
 	ProcessLogEntry entry(pid, id, out);
 	logHistory.push_back(entry);
 }
@@ -77,7 +78,10 @@ void Process::log(int id, string out) {
 void Process::runCycle(Dispatcher* dispatcher, int coreId) {
 	if(hasInstructions()) {
 		string out = execute(getInstruction(), dispatcher);
-		pc++;
+		{
+			lock_guard<mutex> lock(mtx);
+			pc++;
+		}
 		log(coreId, out);
 	}
 }
@@ -89,8 +93,7 @@ Instruction Process::getInstruction() {
 }
 
 bool Process::isFinished() {
-	if(pc < totalInstr) return false;
-	return true;
+	return pc >= static_cast<size_t>(totalInstr);
 }
 
 bool Process::hasInstructions() {
@@ -106,7 +109,7 @@ void Process::smi() {
 	cout << "Logs: " << endl;
 
 	{
-		lock_guard<mutex> lock(mtx);
+		lock_guard<mutex> lock(logMtx);
 		for(auto l : logHistory) {
 			l.print();
 		}
@@ -156,7 +159,6 @@ void Process::decode(const string& src) {
 	stringstream ss(src);
 	string instr;
 
-	int i = 1;
 	while(getline(ss, instr, ';')) {
 		trim(instr);
 		if(instr.empty()) continue;
@@ -225,7 +227,7 @@ string Process::execute(Instruction instr, Dispatcher* dispatcher = nullptr) {
 		const uint16_t a = processArg(rawA);
 		const uint16_t b = processArg(rawB);
 		
-		uint16_t diff = a - b;
+    	uint16_t diff = (b > a) ? 0 : (a - b); // clamp at 0
 		variables[dest] = diff;
 		break;
 	}
@@ -267,4 +269,5 @@ string Process::execute(Instruction instr, Dispatcher* dispatcher = nullptr) {
 
 	return "";
 }
+
 

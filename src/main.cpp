@@ -14,8 +14,15 @@
 #include <chrono>
 #include <climits>
 #include <atomic>
+#include <random>
+#include <fstream>
+#include <memory>
+
+//temp
+#include <iomanip>
 
 using namespace std;
+bool running = true;
 
 /* HEADERS *****************/
 #include "utils/helper.hpp" 
@@ -24,47 +31,13 @@ using namespace std;
 #include "instructions/Parser.hpp"
 #include "Logger.hpp"
 #include "Process.hpp"
+#include "utils/ProcessHelper.hpp"
+#include "Initialize.hpp"
 #include "Dispatcher.hpp"
+#include "MainController.hpp"
 /***************************/
 
-/*
- * The idea is to have a system where it can decode 
- * per instruction line instead of returning a full
- * vector of instructions (sorry i tried it hurts)
- * */
-
 int main() {
-	// dispatcher demo
-	Dispatcher deez(4);
-
-	// process & instruction demo
-	string script = "DECLARE varA 10; DECLARE varB 5; ADD varA 5 6; PRINT(\"varA before looping: \" + varA); SUBTRACT varC varA 3; FOR([FOR([ADD varA varA 4],3)],3); PRINT(\"Result after looping: \" + varA)";
-
-	auto p = make_shared<Process>();
-	p->decode(script);
-
-	deez.addProcess(p);
-
-	std::thread dispatcherThread([&deez]() {
-		 deez.run(); 
-	});
-	dispatcherThread.detach();
-
-	auto p1 = std::make_shared<Process>();
-	p1->decode("PRINT(\"Hello\");");
-	deez.addProcess(p1);
-
-	auto p2 = std::make_shared<Process>();
-	p2->decode("PRINT(\"Hello\");");
-	deez.addProcess(p2);
-
-	auto p3 = std::make_shared<Process>();
-	p3->decode("SLEEP 5000; PRINT(\"Hello\");");
-	deez.addProcess(p3);
-
-	while(true) {
-		//demo ls function of dispatcher
-		deez.ls();
-		this_thread::sleep_for(chrono::milliseconds(1000));
-	}
+	MainController os;
+	os.run();
 }
