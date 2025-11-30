@@ -26,6 +26,10 @@ private:
 	int minIns;
 	int maxIns;
 
+	//stress test decl	
+	thread testThread;
+	bool test;
+
 public:
 	Dispatcher() :
 		mode(Mode::RR),
@@ -34,14 +38,15 @@ public:
 		execDelay(10),
 		batchFreq(10),
 		minIns(5),
-		maxIns(10)
+		maxIns(10),
+		test(false)
 	{}
 
 	void configure(Config cfg) {
 		if(cfg.scheduler == "fcfs")
-			mode = Mode::RR;
-		else if(cfg.scheduler == "rr")
 			mode = Mode::FCFS;
+		else if(cfg.scheduler == "rr")
+			mode = Mode::RR;
 
 		nCores = cfg.numcpu;
 		quantum = cfg.quantumCycles;
@@ -60,6 +65,8 @@ public:
 	shared_ptr<Process> searchProcess(string);
 	
 	//feats
+	void startTest();
+	void stopTest();
 	void enterProcessScreen(string);
 	void ls();
 
@@ -92,9 +99,10 @@ void Dispatcher::coreLoop(int id) {
 		shared_ptr<Process> proc = nullptr;
 
 		// lock for waking sleeping processes
+		wakeSleepingProcesses();
+
 		{
 			lock_guard<mutex> lock(queueMtx);
-			wakeSleepingProcesses();
 			if(!readyQueue.empty()) {
 				proc = readyQueue.front();
 				readyQueue.pop();
@@ -108,7 +116,7 @@ void Dispatcher::coreLoop(int id) {
 			//check status
 			//only READY state processes are allowed to be taken
 			//by core
-			if(!proc) {
+			if(!proc || proc->state != ProcessState::READY) {
 				currentProc[id] = nullptr;
 				this_thread::sleep_for(chrono::milliseconds(5));
 				continue;
@@ -118,26 +126,38 @@ void Dispatcher::coreLoop(int id) {
 			}
 		}
 
-		//fetch execution cycle
-		int steps = (mode == Mode::RR) ? quantum : proc->totalInstr;
-		for(int i = 0; i < steps && !proc->isFinished() &&
-				proc->state != ProcessState::IDLE; i++) {
-			proc->runCycle(this, id);
-			this_thread::sleep_for(chrono::milliseconds(execDelay));
-		}
+		if (mode == Mode::FCFS) {
+			while (!proc->isFinished()) {
+				proc->runCycle(this, id);
+				this_thread::sleep_for(chrono::milliseconds(execDelay));
+			}
 
-		//update queue after rr or fcfs
-		{
 			lock_guard<mutex> lock(queueMtx);
+			finishedQueue.push(proc);
+			proc->state = ProcessState::FINISHED;
 
-			//skip sleeping states (not to requeue w rq or fq)
-			if (proc->state == ProcessState::IDLE) continue;
+		} else {
+			for(int i = 0; i < quantum && !proc->isFinished() &&
+					proc->state != ProcessState::IDLE; i++) {
+				proc->runCycle(this, id);
+				this_thread::sleep_for(chrono::milliseconds(execDelay));
+			}
 
-			if (proc->isFinished() && proc->state == ProcessState::RUNNING) {
-				finishedQueue.push(proc);
+			//update queue after rr or fcfs
+			{
+				lock_guard<mutex> lock(queueMtx);
 
-			} else if(proc->state == ProcessState::RUNNING) {
-				readyQueue.push(proc);
+				//skip sleeping states (not to requeue w rq or fq)
+				if (proc->state == ProcessState::IDLE) continue;
+
+				if (proc->isFinished() && proc->state != ProcessState::IDLE) {
+					finishedQueue.push(proc);
+					proc->state = ProcessState::FINISHED;
+
+				} else if(proc->state == ProcessState::RUNNING) {
+					readyQueue.push(proc);
+					proc->state = ProcessState::READY;
+				}
 			}
 		}
 	}
@@ -148,6 +168,8 @@ void Dispatcher::coreLoop(int id) {
 /*===============================================================*/
 void Dispatcher::wakeSleepingProcesses() {
 	auto now = chrono::steady_clock::now();
+
+	lock_guard<mutex> lock(queueMtx);
 	for (auto it = idleQueue.begin(); it != idleQueue.end();) {
 		if (it->wakeUpTime <= now) {
 			if(it->proc->isFinished()) {
@@ -320,13 +342,29 @@ void Dispatcher::ls() {
 
    while (!temp.empty()) {
       auto &p = temp.front();
-      temp.pop();
 		cout << "[" << p->pname << "] " << p->toStringRecentTimeLog() << 
 			" FINISHED" << " | " << to_string(p->pc) << "/" << to_string(p->totalInstr)
 			<< " |\n";
+      temp.pop();
    }
 	
 	cout << "==============================================================" << endl;
 }
 
+void Dispatcher::startTest() {
+	cout << "Test Started." << endl;
+	test = true;
+	testThread = thread([&]() {
+		while(test) {
+			shared_ptr<Process> p = createRandomProcess(minIns, maxIns);
+			addProcess(p);
+			this_thread::sleep_for(chrono::milliseconds(batchFreq));
+		}
+	});
+}
 
+void Dispatcher::stopTest() {
+	test = false;
+	if(testThread.joinable())
+		testThread.join();
+}

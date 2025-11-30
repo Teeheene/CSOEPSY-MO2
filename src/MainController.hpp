@@ -41,7 +41,7 @@ public:
 
 						minIns = cfg.minIns;
 						maxIns = cfg.maxIns;
-						std::cout << "dispatcher.started successfully.\n\n";
+						std::cout << "scheduler started successfully.\n\n";
 						initialized = true;
 						
 						t = thread([&dispatcher]() { dispatcher.run(); });
@@ -102,11 +102,11 @@ public:
 				}
 				else if (cmd[0] == "scheduler-start" || cmd[0] == "scheduler-test")
 				{
-					//dispatcher.startTest();
+					dispatcher.startTest();
 				}
 				else if (cmd[0] == "scheduler-stop")
 				{
-					//dispatcher.stopTest();
+					dispatcher.stopTest();
 				}
 				else if (cmd[0] == "report-util")
 				{

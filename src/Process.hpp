@@ -53,6 +53,7 @@ public:
 	bool hasInstructions();
 	bool isFinished();
 	int countInstructions(const vector<Instruction>&);
+	int instructionsLeft();
 	
 	//sleep
 	void handleSleep(Dispatcher*, int);
@@ -75,6 +76,10 @@ string Process::toStringLogs() {
 	}
 
 	return res;
+}
+
+int Process::instructionsLeft() {
+	return totalInstr - pc;
 }
 
 string Process::toStringRecentTimeLog() {

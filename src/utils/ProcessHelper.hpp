@@ -31,7 +31,8 @@ string generateInstr(int &budget, int depth = 0) {
         if (op == "SUBTRACT")
             return "SUBTRACT " + var + " " + var + " " + to_string(rndInt(1, 50));
         if (op == "SLEEP" && depth == 0)
-            return "SLEEP " + to_string(rndInt(50, 500));
+         	//return "SLEEP " + to_string(rndInt(50, 500));
+            return "PRINT(\"Hello World\")";
         return "";
     }
 
@@ -80,7 +81,7 @@ shared_ptr<Process> createRandomProcess(int minIns, int maxIns) {
     auto p = make_shared<Process>();
     string script = generateScript(minIns, maxIns);
 
-    cout << "\n=== GENERATED SCRIPT ===\n" << script << "\n=========================\n";
+    //cout << "\n=== GENERATED SCRIPT ===\n" << script << "\n=========================\n";
 
     p->decode(script);
     return p;
