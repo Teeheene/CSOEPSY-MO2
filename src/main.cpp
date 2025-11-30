@@ -29,11 +29,11 @@ bool running = true;
 #include "instructions/OpCode.hpp"
 #include "instructions/Instruction.hpp"
 #include "instructions/Parser.hpp"
-#include "Logger.hpp"
-#include "Process.hpp"
-#include "utils/ProcessHelper.hpp"
-#include "Initialize.hpp"
-#include "Dispatcher.hpp"
+#include "process/Logger.hpp"
+#include "process/Process.hpp"
+#include "process/ProcessHelper.hpp"
+#include "configs/Initialize.hpp"
+#include "process/Dispatcher.hpp"
 #include "MainController.hpp"
 /***************************/
 
