@@ -26,6 +26,8 @@ public:
 
 	mutex logMtx;
 	mutex mtx;
+
+	size_t memLimit;
 	
 private:
 	//private details
@@ -38,19 +40,23 @@ private:
 	bool running = false;
 
 public:
-	Process(string name = "") :
-		state(ProcessState::READY)	
+	Process(string name = "", size_t memory_limit = 4096) :
+		state(ProcessState::READY), memLimit(memory_limit)	
 	{
 		pid = nextPid.fetch_add(1);
 
 		pname = name;
-		
+
 		if(name.empty()) {
 			pname = "PROC-" + to_string(pid);
 		}
 
+		cout << "[DEBUG] Process Created | Name: " << pname 
+         << " | ID: " << pid 
+         << " | Memory Limit: " << memLimit << endl;
+
 		if (globalMem) {
-			globalMem->allocateMemory(pid);
+			globalMem->allocateMemory(pid, memory_limit);
 		}
 	}
 

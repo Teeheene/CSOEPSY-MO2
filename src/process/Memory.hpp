@@ -35,6 +35,7 @@ private:
     std::mutex memMtx;
 
     std::unordered_map<int, int> residentSetSize;
+    std::map<int, size_t> processMemoryLimit;
 
 public:
     MemoryManager(size_t memSize, size_t fSize) : memorySize(memSize), frameSize(fSize) {
@@ -48,9 +49,10 @@ public:
     }
 
     // Allocate virtual space for process
-    void allocateMemory(int pid) {
+    void allocateMemory(int pid, size_t limit) {
         std::lock_guard<std::mutex> lock(memMtx);
         pageTables[pid] = std::map<int, PageTableEntry>();
+        processMemoryLimit[pid] = limit;
     }
 
     // Remove process from memory completely
@@ -133,6 +135,9 @@ public:
 private:
     void handlePageFault(int pid, int pageNum) {
         // std::cout << "[Memory] Page Fault for Process " << pid << " Page " << pageNum << std::endl;
+        if (residentSetSize[pid] * frameSize >= processMemoryLimit[pid]) {
+            throw runtime_error("Process " + to_string(pid) + " exceeded memory limit!");
+        }
         numPagedIn++;
 
         int frameToUse = -1;

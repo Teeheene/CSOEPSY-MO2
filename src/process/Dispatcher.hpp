@@ -298,8 +298,8 @@ void Dispatcher::enterProcessScreen(string procName) {
 			double utilPercent = 0.0;
 
 			if (globalMem) {
-				totalMemMB = static_cast<double>(globalMem->getMemorySize()) / 1024.0;
-				usedMemMB = static_cast<double>(globalMem->getUsedMemory()) / 1024.0;
+				totalMemMB = static_cast<double>(globalMem->getMemorySize());
+				usedMemMB = static_cast<double>(globalMem->getUsedMemory());
 				
 				if (totalMemMB > 0) {
 					utilPercent = (usedMemMB / totalMemMB) * 100.0;
@@ -327,7 +327,7 @@ void Dispatcher::enterProcessScreen(string procName) {
 						// Get memory for this specific process
 						double procMemMB = 0.0;
 						if (globalMem) {
-							procMemMB = static_cast<double>(globalMem->getProcessMemoryUsage(p->pid)) / 1024.0;
+							procMemMB = static_cast<double>(globalMem->getProcessMemoryUsage(p->pid));
 						}
 
 						// Print Format: Name + ID + Usage
