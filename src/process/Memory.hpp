@@ -20,24 +20,17 @@ private:
     size_t frameSize;
     size_t numFrames;
 
-    // Physical Memory (RAM)
-    // A flattened vector where index = (frameNum * frameSize) + offset
     std::vector<uint16_t> mainMemory; 
 
-    // Free Frame List (Queue for allocation)
     std::deque<int> freeFrames;
 
-    // FIFO Queue for Page Replacement (stores frame numbers in order of allocation)
     std::deque<int> activeFrames; 
-    // Reverse lookup to find who owns a frame (Frame# -> {PID, Page#})
     std::map<int, std::pair<int, int>> frameOwner; 
-
-    // Page Tables: PID -> (PageNumber -> Entry)
     std::map<int, std::map<int, PageTableEntry>> pageTables;
-
-    // Backing Store: PID -> (PageNumber -> DataVector)
-    // Simulates the disk where swapped out pages go
     std::map<int, std::map<int, std::vector<uint16_t>>> backingStore;
+
+    std::atomic<int> numPagedIn{0};
+    std::atomic<int> numPagedOut{0};
 
     std::mutex memMtx;
 
@@ -52,7 +45,7 @@ public:
         }
     }
 
-    // Allocate virtual space for a process (initialize empty page table)
+    // Allocate virtual space for process
     void allocateMemory(int pid) {
         std::lock_guard<std::mutex> lock(memMtx);
         pageTables[pid] = std::map<int, PageTableEntry>();
@@ -62,16 +55,10 @@ public:
     void deallocateMemory(int pid) {
         std::lock_guard<std::mutex> lock(memMtx);
         
-        // Free up frames used by this process
         for (auto& entry : pageTables[pid]) {
             if (entry.second.valid) {
                 int frame = entry.second.frameNumber;
                 freeFrames.push_back(frame);
-                
-                // Remove from activeFrames logic would be complex in pure FIFO 
-                // without inefficient searching, but required for correctness.
-                // For simplicity in this assignment, we mark frame as free 
-                // and ignore 'activeFrames' cleanup until usage.
                 frameOwner.erase(frame);
             }
         }
@@ -89,7 +76,6 @@ public:
         // Ensure page entry exists
         if (pageTables[pid].find(pageNum) == pageTables[pid].end()) {
             pageTables[pid][pageNum] = PageTableEntry();
-            // Initialize backing store with zeros for this new page
             backingStore[pid][pageNum] = std::vector<uint16_t>(frameSize, 0);
         }
 
@@ -118,9 +104,25 @@ public:
         return std::to_string(used) + "/" + std::to_string(numFrames) + " frames";
     }
 
+    size_t getMemorySize() { return memorySize; }
+    
+    // Calculate used/free based on frames (Thread-safe)
+    size_t getUsedMemory() {
+        std::lock_guard<std::mutex> lock(memMtx);
+        return (numFrames - freeFrames.size()) * frameSize;
+    }
+
+    size_t getFreeMemory() {
+        std::lock_guard<std::mutex> lock(memMtx);
+        return freeFrames.size() * frameSize;
+    }
+
+    int getPagedInCount() { return numPagedIn.load(); }
+    int getPagedOutCount() { return numPagedOut.load(); }
 private:
     void handlePageFault(int pid, int pageNum) {
         // std::cout << "[Memory] Page Fault for Process " << pid << " Page " << pageNum << std::endl;
+        numPagedIn++;
 
         int frameToUse = -1;
 
@@ -157,6 +159,8 @@ private:
     }
 
     void evictPage(int pid, int pageNum, int frameNum) {
+        numPagedOut++;
+
         // Copy data from RAM to Backing Store
         int startAddr = frameNum * frameSize;
         std::vector<uint16_t> data(frameSize);

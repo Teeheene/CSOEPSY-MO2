@@ -34,6 +34,9 @@ private:
 	thread testThread;
 	bool test;
 
+	atomic<long long> activeTicks{0};
+    atomic<long long> idleTicks{0};
+
 public:
 	Dispatcher() :
 		mode(Mode::RR),
@@ -80,6 +83,7 @@ public:
 	void stopTest();
 	void enterProcessScreen(string);
 	void ls();
+	void vmstat();
 
 private:
 	void coreLoop(int);
@@ -124,11 +128,9 @@ void Dispatcher::coreLoop(int id) {
 		{
 			lock_guard<mutex> lock(coreMtx);
 
-			//check status
-			//only READY state processes are allowed to be taken
-			//by core
 			if(!proc || proc->state != ProcessState::READY) {
 				currentProc[id] = nullptr;
+				idleTicks++;
 				this_thread::sleep_for(chrono::milliseconds(5));
 				continue;
 			} else {
@@ -140,6 +142,7 @@ void Dispatcher::coreLoop(int id) {
 		if (mode == Mode::FCFS) {
 			while (!proc->isFinished()) {
 				proc->runCycle(this, id);
+				activeTicks++;
 				this_thread::sleep_for(chrono::milliseconds(execDelay));
 			}
 
@@ -151,6 +154,7 @@ void Dispatcher::coreLoop(int id) {
 			for(int i = 0; i < quantum && !proc->isFinished() &&
 					proc->state != ProcessState::IDLE; i++) {
 				proc->runCycle(this, id);
+				activeTicks++;
 				this_thread::sleep_for(chrono::milliseconds(execDelay));
 			}
 
@@ -307,7 +311,41 @@ void Dispatcher::enterProcessScreen(string procName) {
 			if(proc->isFinished())
 			cout << "Finished!" << endl;
 			cout << "================================================" << endl;
-		} else if (cmd[0] == "exit") {
+		} else if (cmd[0] == "vmstat") {
+			long long active = activeTicks.load();
+			long long idle = idleTicks.load();
+			long long totalTicks = active + idle;
+
+			// Retrieve Memory Stats (safely via globalMem)
+			size_t totalMem = 0; 
+			size_t usedMem = 0;
+			size_t freeMem = 0;
+			int pIn = 0;
+			int pOut = 0;
+
+			if (globalMem) {
+				totalMem = globalMem->getMemorySize();
+				usedMem = globalMem->getUsedMemory();
+				freeMem = globalMem->getFreeMemory();
+				pIn = globalMem->getPagedInCount();
+				pOut = globalMem->getPagedOutCount();
+			}
+
+			// 3. Print the Output Table
+			cout << "\n" << string(60, '=') << endl;
+			cout << "  VMSTAT (Virtual Memory Statistics)" << endl;
+			cout << string(60, '=') << endl;
+			
+			cout << "Total Memory:       " << totalMem << " KB" << endl;
+			cout << "Used Memory:        " << usedMem << " KB" << endl;
+			cout << "Free Memory:        " << freeMem << " KB" << endl;
+			cout << "Idle CPU Ticks:     " << idle << endl;
+			cout << "Active CPU Ticks:   " << active << endl;
+			cout << "Total CPU Ticks:    " << totalTicks << endl;
+			cout << "Num Paged In:       " << pIn << endl;
+			cout << "Num Paged Out:      " << pOut << endl;
+			cout << string(60, '=') << endl;
+		}else if (cmd[0] == "exit") {
 			cout << "Returning home..." << endl;
 			break;
 		} else {
