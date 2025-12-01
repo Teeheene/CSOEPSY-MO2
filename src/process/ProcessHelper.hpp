@@ -9,7 +9,7 @@ int rndInt(int a, int b) {
 string generateInstr(int &budget, int depth = 0) {
     if (budget <= 0) return "";
 
-    vector<string> ops = {"PRINT", "DECLARE", "ADD", "SUBTRACT", "SLEEP"};
+    vector<string> ops = {"PRINT", "DECLARE", "ADD", "SUBTRACT", "SLEEP", "READ", "WRITE"};
     vector<string> vars = {
     "V01", "V02", "V03", "V04", "V05", "V06", "V07", "V08", "V09", "V10", 
     "V11", "V12", "V13", "V14", "V15", "V16", "V17", "V18", "V19", "V20"
@@ -36,6 +36,21 @@ string generateInstr(int &budget, int depth = 0) {
         if (op == "SLEEP" && depth == 0)
          	return "SLEEP " + to_string(rndInt(50, 500));
         return "";
+        if (op == "READ") {
+            int addr = rndInt(0, 4096);
+            stringstream ss;
+            ss << "0x" << std::hex << addr;
+            return "READ " + var + " " + ss.str();
+        }
+
+        if (op == "WRITE") {
+            int addr = rndInt(0, 4096);
+            stringstream ss;
+            ss << "0x" << std::hex << addr;
+            
+            int val = rndInt(0, 100);
+            return "WRITE " + ss.str() + " " + to_string(val);
+        }
     }
 
     // Single-level FOR

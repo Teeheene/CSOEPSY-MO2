@@ -93,6 +93,27 @@ private:
 		}
 		return symbolTable[varName];
 	}
+
+	int parseAddressOrValue(const string& s) {
+		try {
+			if (s.size() > 2 && s.substr(0, 2) == "0x") {
+				return std::stoul(s, nullptr, 16);
+			}
+			if (isNumber(s)) {
+				return std::stoi(s);
+			}
+			return processArg(s); 
+		} catch (...) {
+			throw runtime_error("Invalid address/value format: " + s);
+		}
+	}
+
+	bool checkMemoryViolation(int virtualAddress) {
+		if (virtualAddress < 0 || (size_t)virtualAddress >= memLimit) {
+			return true; // Violation occurred
+		}
+		return false;
+	}
 };
 
 string Process::toStringLogs() {
@@ -273,6 +294,73 @@ string Process::execute(Instruction instr, Dispatcher* dispatcher = nullptr) {
 
 		break;
 	}
+
+	case OpCode::READ: {
+        // Syntax: READ <var> <memory_address>
+        if (instr.args.size() < 2) break;
+
+        string varName = instr.args[0];
+        string hexAddr = instr.args[1];
+
+        // 1. Parse Address
+        int vAddr = 0;
+        try {
+            vAddr = parseAddressOrValue(hexAddr);
+        } catch (...) { break; }
+
+        // 2. Access Violation Check
+        if (checkMemoryViolation(vAddr)) {
+            state = ProcessState::FINISHED; // Shut down process
+            return "Segmentation Fault (Access Violation) at " + hexAddr;
+        }
+
+        // 3. Read from Memory
+        uint16_t val = 0;
+        if (globalMem) {
+            val = globalMem->access(pid, vAddr, false); // Read
+        }
+
+        // 4. Store to Variable (Check Symbol Table Limit)
+        if (symbolTable.find(varName) == symbolTable.end() && symbolTable.size() >= 32) {
+            return "READ ignored (Symbol Table Full)";
+        }
+        
+        int varAddr = getAddress(varName); // This allocates space for 'var'
+        if (globalMem) {
+            globalMem->access(pid, varAddr, true, val); // Write val to var's storage
+        }
+
+        return "Read " + to_string(val) + " from " + hexAddr + " into " + varName;
+    }
+
+    case OpCode::WRITE: {
+        // Syntax: WRITE <memory_address> <value>
+        if (instr.args.size() < 2) break;
+
+        string hexAddr = instr.args[0];
+        string valStr = instr.args[1];
+
+        // 1. Parse Address and Value
+        int vAddr = 0;
+        uint16_t val = 0;
+        try {
+            vAddr = parseAddressOrValue(hexAddr);
+            val = (uint16_t)parseAddressOrValue(valStr);
+        } catch (...) { break; }
+
+        // 2. Access Violation Check
+        if (checkMemoryViolation(vAddr)) {
+            state = ProcessState::FINISHED; // Shut down process
+            return "Segmentation Fault (Access Violation) at " + hexAddr;
+        }
+
+        // 3. Write to Memory
+        if (globalMem) {
+            globalMem->access(pid, vAddr, true, val);
+        }
+
+        return "Wrote " + to_string(val) + " to " + hexAddr;
+    }
 
 	case OpCode::ADD: {
 		if(instr.args.size() < 3)

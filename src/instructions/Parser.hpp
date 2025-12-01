@@ -5,6 +5,8 @@ OpCode parseOpCode(const string& raw) {
 	if (raw == "SUBTRACT") return OpCode::SUBTRACT;
 	if (raw == "SLEEP") return OpCode::SLEEP;
 	if (raw == "FOR") return OpCode::FOR;
+   if (raw == "READ") return OpCode::READ;
+   if (raw == "WRITE") return OpCode::WRITE;
 
 	throw runtime_error("Unknown opcode: " + raw);
 }
