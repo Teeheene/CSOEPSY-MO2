@@ -105,7 +105,7 @@ bool Config::loadFile()
             if (val >= 64 && val <= 1LL << 32) 
                 maxOverallMem = val;
             else
-                error = 9; // New error code
+                error = 9;
         }
         else if (key == "mem_per_frame")
         {
@@ -113,7 +113,7 @@ bool Config::loadFile()
             if (val >= 4 && val <= 1024) 
                 memPerFrame = val;
             else
-                error = 10; // New error code
+                error = 10;
         }
         else
         {
@@ -149,8 +149,15 @@ bool Config::loadFile()
             case 8:
                 std::cerr << "[Error] delays_per_exec out of range" << std::endl;
                 break;
-            }
+            
+            case 9:
+                std::cerr << "[Error] max_overall_mem out of range" << std::endl;
+                break;
+            case 10:
+                std::cerr << "[Error] mem_per_frame out of range" << std::endl;
+                break;
             return false;
+            }
         }
     }
     return true;
@@ -164,7 +171,7 @@ void Config::print() const
     std::cout << "batchFreq: " << batchFreq << "\n";
     std::cout << "minIns: " << minIns << "\n";
     std::cout << "maxIns: " << maxIns << "\n";
-    std::cout << "delayExec: " << delayExec << "\n\n";
+    std::cout << "delayExec: " << delayExec << "\n";
     std::cout << "maxOverallMem: " << maxOverallMem << "\n";
-    std::cout << "memPerFrame: " << memPerFrame << "\n";
+    std::cout << "memPerFrame: " << memPerFrame << "\n\n";
 }
