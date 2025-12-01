@@ -42,6 +42,9 @@ public:
 		state(ProcessState::READY)	
 	{
 		pid = nextPid.fetch_add(1);
+
+		pname = name;
+		
 		if(name.empty()) {
 			pname = "PROC-" + to_string(pid);
 		}

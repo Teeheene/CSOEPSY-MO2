@@ -109,8 +109,9 @@ public:
                      try {
                         int mem = stoi(cmd[3]);
                         if(mem >= 64 && mem <= 65536) {
-                           shared_ptr<Process> p;
+                           shared_ptr<Process> p = make_shared<Process>(cmd[2]);
                            p->decode(cmd[4]);
+						   dispatcher.addProcess(p);
                            dispatcher.enterProcessScreen(p->pname);
                         } else {
                            cout << "invalid memory allocation" << endl;
