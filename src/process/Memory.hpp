@@ -38,7 +38,10 @@ private:
     std::map<int, size_t> processMemoryLimit;
 
 public:
-    MemoryManager(size_t memSize, size_t fSize) : memorySize(memSize), frameSize(fSize) {
+    MemoryManager(size_t memSize, size_t fSize) : 
+        memorySize(memSize), 
+        frameSize(fSize) {
+
         numFrames = memorySize / frameSize;
         mainMemory.resize(memorySize, 0);
         
