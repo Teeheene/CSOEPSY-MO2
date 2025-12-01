@@ -12,6 +12,8 @@ struct Config
     long long int delayExec;
     long long int maxOverallMem;
     long long int memPerFrame;
+    long long int minMemPerProc;
+    long long int maxMemPerProc;
 
     bool loadFile();
     void print() const;
@@ -102,7 +104,7 @@ bool Config::loadFile()
         else if (key == "max_overall_mem")
         {
             long long int val = std::stoll(value);
-            if (val >= 64 && val <= 1LL << 32) 
+            if (val >= 64 && val <= 2<<16) 
                 maxOverallMem = val;
             else
                 error = 9;
@@ -110,10 +112,26 @@ bool Config::loadFile()
         else if (key == "mem_per_frame")
         {
             long long int val = std::stoll(value);
-            if (val >= 4 && val <= 1024) 
+            if (val >= 64 && val <= 2<<16) 
                 memPerFrame = val;
             else
                 error = 10;
+        }
+        else if (key == "min-mem-per-proc")
+        {
+            long long int val = std::stoll(value);
+            if (val >= 64 && val <= 2<<16) 
+                minMemPerProc = val;
+            else
+                error = 11;
+        }
+        else if (key == "max-mem-per-proc")
+        {
+            long long int val = std::stoll(value);
+            if (val >= 64 && val <= 2<<16) 
+                maxMemPerProc = val;
+            else
+                error = 11;
         }
         else
         {
@@ -156,6 +174,12 @@ bool Config::loadFile()
             case 10:
                 std::cerr << "[Error] mem_per_frame out of range" << std::endl;
                 break;
+            case 11:
+                std::cerr << "[Error] min_mem_per_proc out of range" << std::endl;
+                break;
+            case 12:
+                std::cerr << "[Error] max_mem_per_proc out of range" << std::endl;
+                break;
             return false;
             }
         }
@@ -173,5 +197,7 @@ void Config::print() const
     std::cout << "maxIns: " << maxIns << "\n";
     std::cout << "delayExec: " << delayExec << "\n";
     std::cout << "maxOverallMem: " << maxOverallMem << "\n";
-    std::cout << "memPerFrame: " << memPerFrame << "\n\n";
+    std::cout << "memPerFrame: " << memPerFrame << "\n";
+    std::cout << "minMemPerProc" << minMemPerProc << "\n";
+    std::cout << "maxMemPerProc: " << maxMemPerProc << "\n \n";
 }
