@@ -1,3 +1,9 @@
+#include "Memory.hpp"
+
+extern shared_ptr<MemoryManager> globalMem;
+
+using namespace std;
+
 enum class ProcessState {
 	RUNNING,
 	READY,
@@ -27,7 +33,8 @@ private:
 
 	//tasks
 	vector<Instruction> instructions;
-	unordered_map<string, uint16_t> variables; // varName, uint16
+	unordered_map<string, int> symbolTable; 
+	int nextVirtAddr = 0;
 	bool running = false;
 
 public:
@@ -37,6 +44,10 @@ public:
 		pid = nextPid.fetch_add(1);
 		if(name.empty()) {
 			pname = "PROC-" + to_string(pid);
+		}
+
+		if (globalMem) {
+			globalMem->allocateMemory(pid);
 		}
 	}
 
@@ -63,6 +74,16 @@ public:
 	void smi();
 	string toStringRecentTimeLog();
 	string toStringLogs();
+
+private:
+	// Helper to resolve a variable name to a Virtual Address
+	int getAddress(const string& varName) {
+		if (symbolTable.find(varName) == symbolTable.end()) {
+			// If variable is new, assign it the next available virtual address
+			symbolTable[varName] = nextVirtAddr++;
+		}
+		return symbolTable[varName];
+	}
 };
 
 string Process::toStringLogs() {
@@ -158,7 +179,14 @@ uint16_t Process::processArg(const string& arg) {
 	if(isNumber(arg)) {
 		return stringToUint16(arg);
 	} else {
-		return variables[arg];
+		int addr = getAddress(arg);
+		if (globalMem) {
+			// access(pid, virtualAddress, isWrite, writeValue)
+			return globalMem->access(pid, addr, false); 
+		} else {
+			// Fallback if memory manager not initialized (shouldn't happen in full config)
+			return 0;
+		}
 	}
 }
 
@@ -229,7 +257,10 @@ string Process::execute(Instruction instr, Dispatcher* dispatcher = nullptr) {
 		else 
 			value = stringToUint16(instr.args[1]); 
 
-		variables[var] = value;
+		int addr = getAddress(var);
+		if(globalMem) {
+			globalMem->access(pid, addr, true, value);
+		}
 
 		break;
 	}
@@ -252,7 +283,10 @@ string Process::execute(Instruction instr, Dispatcher* dispatcher = nullptr) {
 			//throw runtime_error("[ERROR] ADD overflow");
 			break;
 
-		variables[dest] = static_cast<uint16_t>(sum);
+		int addr = getAddress(dest);
+		if(globalMem) {
+			globalMem->access(pid, addr, true, static_cast<uint16_t>(sum));
+		}
 		break;
 	}
 
@@ -269,7 +303,10 @@ string Process::execute(Instruction instr, Dispatcher* dispatcher = nullptr) {
 		const uint16_t b = processArg(rawB);
 		
     	uint16_t diff = (b > a) ? 0 : (a - b); // clamp at 0
-		variables[dest] = diff;
+		int addr = getAddress(dest);
+		if(globalMem) {
+			globalMem->access(pid, addr, true, diff);
+		}
 		break;
 	}
 

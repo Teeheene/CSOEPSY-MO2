@@ -10,6 +10,8 @@ struct Config
     long long int minIns;
     long long int maxIns;
     long long int delayExec;
+    long long int maxOverallMem;
+    long long int memPerFrame;
 
     bool loadFile();
     void print() const;
@@ -18,7 +20,7 @@ struct Config
 bool Config::loadFile()
 {
     std::ifstream file;
-    file.open("src/configs/config.txt");
+    file.open("configs/config.txt");
 	 if (!file.is_open()) {
         std::cerr << "[Error] Could not open config.txt" << std::endl;
         return false;
@@ -97,6 +99,22 @@ bool Config::loadFile()
             else
                 error = 8;
         }
+        else if (key == "max_overall_mem")
+        {
+            long long int val = std::stoll(value);
+            if (val >= 64 && val <= 1LL << 32) 
+                maxOverallMem = val;
+            else
+                error = 9; // New error code
+        }
+        else if (key == "mem_per_frame")
+        {
+            long long int val = std::stoll(value);
+            if (val >= 4 && val <= 1024) 
+                memPerFrame = val;
+            else
+                error = 10; // New error code
+        }
         else
         {
             std::cerr << "[Error] Unknown key: " << key << std::endl;
@@ -147,4 +165,6 @@ void Config::print() const
     std::cout << "minIns: " << minIns << "\n";
     std::cout << "maxIns: " << maxIns << "\n";
     std::cout << "delayExec: " << delayExec << "\n\n";
+    std::cout << "maxOverallMem: " << maxOverallMem << "\n";
+    std::cout << "memPerFrame: " << memPerFrame << "\n";
 }

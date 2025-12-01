@@ -10,7 +10,10 @@ string generateInstr(int &budget, int depth = 0) {
     if (budget <= 0) return "";
 
     vector<string> ops = {"PRINT", "DECLARE", "ADD", "SUBTRACT", "SLEEP"};
-    vector<string> vars = {"varA", "varB", "varC"};
+    vector<string> vars = {
+    "V01", "V02", "V03", "V04", "V05", "V06", "V07", "V08", "V09", "V10", 
+    "V11", "V12", "V13", "V14", "V15", "V16", "V17", "V18", "V19", "V20"
+    };
 
     // Only allow FOR at depth 0
     if (depth == 0 && budget >= 3) ops.push_back("FOR");

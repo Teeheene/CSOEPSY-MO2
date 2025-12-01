@@ -1,3 +1,7 @@
+#include "Memory.hpp"
+
+shared_ptr<MemoryManager> globalMem = nullptr;
+
 struct sleepingProcess {
 	shared_ptr<Process> proc;
 	chrono::steady_clock::time_point wakeUpTime;
@@ -43,18 +47,25 @@ public:
 	{}
 
 	void configure(Config cfg) {
-		if(cfg.scheduler == "fcfs")
-			mode = Mode::FCFS;
-		else if(cfg.scheduler == "rr")
-			mode = Mode::RR;
+    if(cfg.scheduler == "fcfs")
+        mode = Mode::FCFS;
+    else if(cfg.scheduler == "rr")
+        mode = Mode::RR;
 
-		nCores = cfg.numcpu;
-		quantum = cfg.quantumCycles;
-		execDelay = cfg.delayExec;
-		batchFreq = cfg.batchFreq; 
-		minIns = cfg.minIns;
-		maxIns = cfg.maxIns;
-	}
+    nCores = cfg.numcpu;
+    quantum = cfg.quantumCycles;
+    execDelay = cfg.delayExec;
+    batchFreq = cfg.batchFreq; 
+    minIns = cfg.minIns;
+    maxIns = cfg.maxIns;
+
+    if (cfg.maxOverallMem > 0 && cfg.memPerFrame > 0) {
+        globalMem = std::make_shared<MemoryManager>(cfg.maxOverallMem, cfg.memPerFrame);
+    } else {
+        std::cout << "[WARNING] Memory config missing or invalid. Using default 4096/16." << std::endl;
+        globalMem = std::make_shared<MemoryManager>(4096, 16); 
+    }
+}
 	
 	void run();
 	void addProcess(shared_ptr<Process>);
@@ -153,10 +164,8 @@ void Dispatcher::coreLoop(int id) {
 				if (proc->isFinished() && proc->state != ProcessState::IDLE) {
 					finishedQueue.push(proc);
 					proc->state = ProcessState::FINISHED;
-
-				} else if(proc->state == ProcessState::RUNNING) {
-					readyQueue.push(proc);
-					proc->state = ProcessState::READY;
+					// FREE MEMORY
+					if(globalMem) globalMem->deallocateMemory(proc->pid); 
 				}
 			}
 		}
