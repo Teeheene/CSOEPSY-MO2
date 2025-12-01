@@ -292,6 +292,26 @@ void Dispatcher::enterProcessScreen(string procName) {
 		if(cmd.empty()) continue;
 
 		if (cmd[0] == "process-smi") {
+			int pc;
+			int totalInstr;
+
+        	{
+				lock_guard<mutex> lock1(proc->mtx);
+            pc = proc->pc;
+         	totalInstr = proc->totalInstr;
+        	}
+
+        	cout << "============== PROCESS SCREEN ==============" << endl;
+        	cout << "Process: " << proc->pname << "\nID: " << proc->pid 
+				<< endl;
+      	cout << "\nLogs:\n";
+			cout << proc->toStringLogs();
+
+        	cout << "\nInstructions Status: " << pc << " / " << totalInstr << endl;
+
+			if(proc->isFinished())
+			cout << "Finished!" << endl;
+
 			// Calculate Global Memory Stats
 			double totalMemMB = 0.0;
 			double usedMemMB = 0.0;
@@ -341,6 +361,7 @@ void Dispatcher::enterProcessScreen(string procName) {
 				}
 			}
 			cout << "--------------------------------------------" << endl;
+			cout << "============================================" << endl;
 
 		} else if (cmd[0] == "vmstat") {
 			long long active = activeTicks.load();
