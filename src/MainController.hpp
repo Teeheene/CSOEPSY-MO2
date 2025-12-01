@@ -88,7 +88,7 @@ public:
                            shared_ptr<Process> p = createRandomProcess(minIns, 
                                  maxIns, mem);
                            dispatcher.addProcess(p);
-                           dispatcher.enterProcessScreen(p->pname);
+                           // dispatcher.enterProcessScreen(p->pname);
                         } else {
                            cout << "invalid memory allocation\n" << endl;
                         }
@@ -100,12 +100,12 @@ public:
                      cout << "Missing arguments: screen -s <name> <mem-size>\n";
 						}
 					}
-					else if(cmd[1] == "-r") {
-						if (cmd.size() == 2) 
-							cout << "Missing argument: Process Name" << endl;
-						else
-							dispatcher.enterProcessScreen(cmd[2]);
-					}
+					// else if(cmd[1] == "-r") {
+					// 	if (cmd.size() == 2) 
+					// 		cout << "Missing argument: Process Name" << endl;
+					// 	else
+					// 		dispatcher.enterProcessScreen(cmd[2]);
+					// }
 					else if(cmd[1] == "-ls") 
 						dispatcher.ls();
                else if(cmd[1] == "-c") {
@@ -117,7 +117,7 @@ public:
                            shared_ptr<Process> p = make_shared<Process>(cmd[2], mem);
                            p->decode(cmd[4]);
 						   dispatcher.addProcess(p);
-                           dispatcher.enterProcessScreen(p->pname);
+                           // dispatcher.enterProcessScreen(p->pname);
                         } else {
                            cout << "invalid memory allocation" << endl;
                         }
@@ -143,6 +143,14 @@ public:
 					//implement below :>
 					//handleReportCommand(dispatcher.;
 					cout << "report file created at ./csopesy-log.txt" << endl;
+				}
+				else if (cmd[0] == "process-smi")
+				{
+					dispatcher.printProcessSMI();
+				}
+				else if (cmd[0] == "vmstat")
+				{
+					dispatcher.printVMStat();
 				}
 				else if (cmd[0] == "exit")
 				{

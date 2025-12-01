@@ -81,9 +81,10 @@ public:
 	//feats
 	void startTest(int,int);
 	void stopTest();
-	void enterProcessScreen(string);
+	// void enterProcessScreen(string);
 	void ls();
-	void vmstat();
+	void printProcessSMI();
+	void printVMStat();
 
 private:
 	void coreLoop(int);
@@ -269,142 +270,232 @@ shared_ptr<Process> Dispatcher::searchProcess(string name) {
 /*===============================================================*/
 // REQUIRED FEATURES
 /*===============================================================*/
-void Dispatcher::enterProcessScreen(string procName) {
-	string rawInput;
-	vector<string> cmd;
-	bool screenDisplay = true;
+// void Dispatcher::enterProcessScreen(string procName) {
+// 	string rawInput;
+// 	vector<string> cmd;
+// 	bool screenDisplay = true;
 
-	auto proc = searchProcess(procName);
+// 	auto proc = searchProcess(procName);
 
-	if(!proc) {
-		cout << "Process <" << procName << "> not found." << endl;
-		screenDisplay = false;
-	} else {
-		//clear screen
-		cout << "\033[2J\033[1;1H";
-	}
+// 	if(!proc) {
+// 		cout << "Process <" << procName << "> not found." << endl;
+// 		screenDisplay = false;
+// 	} else {
+// 		//clear screen
+// 		cout << "\033[2J\033[1;1H";
+// 	}
 
-	while (screenDisplay)
-	{
-		cout << "root:\\> ";
-		getline(cin, rawInput);
-		cmd = tokenizeInput(rawInput);
-		if(cmd.empty()) continue;
+// 	while (screenDisplay)
+// 	{
+// 		cout << "root:\\> ";
+// 		getline(cin, rawInput);
+// 		cmd = tokenizeInput(rawInput);
+// 		if(cmd.empty()) continue;
 
-		if (cmd[0] == "process-smi") {
-			int pc;
-			int totalInstr;
+// 		if (cmd[0] == "process-smi") {
+// 			int pc;
+// 			int totalInstr;
 
-        	{
-				lock_guard<mutex> lock1(proc->mtx);
-            pc = proc->pc;
-         	totalInstr = proc->totalInstr;
-        	}
+//         	{
+// 				lock_guard<mutex> lock1(proc->mtx);
+//             pc = proc->pc;
+//          	totalInstr = proc->totalInstr;
+//         	}
 
-        	cout << "============== PROCESS SCREEN ==============" << endl;
-        	cout << "Process: " << proc->pname << "\nID: " << proc->pid 
-				<< endl;
-      	cout << "\nLogs:\n";
-			cout << proc->toStringLogs();
+//         	cout << "============== PROCESS SCREEN ==============" << endl;
+//         	cout << "Process: " << proc->pname << "\nID: " << proc->pid 
+// 				<< endl;
+//       	cout << "\nLogs:\n";
+// 			cout << proc->toStringLogs();
 
-        	cout << "\nInstructions Status: " << pc << " / " << totalInstr << endl;
+//         	cout << "\nInstructions Status: " << pc << " / " << totalInstr << endl;
 
-			if(proc->isFinished())
-			cout << "Finished!" << endl;
+// 			if(proc->isFinished())
+// 			cout << "Finished!" << endl;
 
-			// Calculate Global Memory Stats
-			double totalMemMB = 0.0;
-			double usedMemMB = 0.0;
-			double utilPercent = 0.0;
+// 			// Calculate Global Memory Stats
+// 			double totalMemMB = 0.0;
+// 			double usedMemMB = 0.0;
+// 			double utilPercent = 0.0;
 
-			if (globalMem) {
-				totalMemMB = static_cast<double>(globalMem->getMemorySize());
-				usedMemMB = static_cast<double>(globalMem->getUsedMemory());
+// 			if (globalMem) {
+// 				totalMemMB = static_cast<double>(globalMem->getMemorySize());
+// 				usedMemMB = static_cast<double>(globalMem->getUsedMemory());
 				
-				if (totalMemMB > 0) {
-					utilPercent = (usedMemMB / totalMemMB) * 100.0;
-				}
-			}
+// 				if (totalMemMB > 0) {
+// 					utilPercent = (usedMemMB / totalMemMB) * 100.0;
+// 				}
+// 			}
 
-			// Print Header
-			cout << "\n--------------------------------------------" << endl;
-			cout << "| PROCESS-SMI V2.0  |  MEMORY MONITOR      |" << endl;
-			cout << "--------------------------------------------" << endl;
-			printf("Memory Usage: %.2f KiB / %.2f KiB\n", usedMemMB, totalMemMB);
-			printf("Memory Util:  %.2f%%\n", utilPercent);
-			cout << "--------------------------------------------" << endl;
-			cout << "Running processes and memory usage:" << endl;
+// 			// Print Header
+// 			cout << "\n--------------------------------------------" << endl;
+// 			cout << "| PROCESS-SMI V2.0  |  MEMORY MONITOR      |" << endl;
+// 			cout << "--------------------------------------------" << endl;
+// 			printf("Memory Usage: %.2f KiB / %.2f KiB\n", usedMemMB, totalMemMB);
+// 			printf("Memory Util:  %.2f%%\n", utilPercent);
+// 			cout << "--------------------------------------------" << endl;
+// 			cout << "Running processes and memory usage:" << endl;
 
-			// Iterate Running Processes (Requires Core Lock)
-			{
-				lock_guard<mutex> lock(coreMtx);
-				bool noneRunning = true;
+// 			// Iterate Running Processes (Requires Core Lock)
+// 			{
+// 				lock_guard<mutex> lock(coreMtx);
+// 				bool noneRunning = true;
 
-				for (const auto& p : currentProc) {
-					if (p != nullptr) {
-						noneRunning = false;
+// 				for (const auto& p : currentProc) {
+// 					if (p != nullptr) {
+// 						noneRunning = false;
 						
-						// Get memory for this specific process
-						double procMemMB = 0.0;
-						if (globalMem) {
-							procMemMB = static_cast<double>(globalMem->getProcessMemoryUsage(p->pid));
-						}
+// 						// Get memory for this specific process
+// 						double procMemMB = 0.0;
+// 						if (globalMem) {
+// 							procMemMB = static_cast<double>(globalMem->getProcessMemoryUsage(p->pid));
+// 						}
 
-						// Print Format: Name + ID + Usage
-						cout << p->pname << " (ID: " << p->pid << ") \t" 
-							<< procMemMB << " KiB" << endl;
-					}
-				}
+// 						// Print Format: Name + ID + Usage
+// 						cout << p->pname << " (ID: " << p->pid << ") \t" 
+// 							<< procMemMB << " KiB" << endl;
+// 					}
+// 				}
 
-				if (noneRunning) {
-					cout << "[No processes currently running on cores]" << endl;
-				}
-			}
-			cout << "--------------------------------------------" << endl;
-			cout << "============================================" << endl;
+// 				if (noneRunning) {
+// 					cout << "[No processes currently running on cores]" << endl;
+// 				}
+// 			}
+// 			cout << "--------------------------------------------" << endl;
+// 			cout << "============================================" << endl;
 
-		} else if (cmd[0] == "vmstat") {
-			long long active = activeTicks.load();
-			long long idle = idleTicks.load();
-			long long totalTicks = active + idle;
+// 		} else if (cmd[0] == "vmstat") {
+// 			long long active = activeTicks.load();
+// 			long long idle = idleTicks.load();
+// 			long long totalTicks = active + idle;
 
-			// Retrieve Memory Stats (safely via globalMem)
-			size_t totalMem = 0; 
-			size_t usedMem = 0;
-			size_t freeMem = 0;
-			int pIn = 0;
-			int pOut = 0;
+// 			// Retrieve Memory Stats (safely via globalMem)
+// 			size_t totalMem = 0; 
+// 			size_t usedMem = 0;
+// 			size_t freeMem = 0;
+// 			int pIn = 0;
+// 			int pOut = 0;
 
-			if (globalMem) {
-				totalMem = globalMem->getMemorySize();
-				usedMem = globalMem->getUsedMemory();
-				freeMem = globalMem->getFreeMemory();
-				pIn = globalMem->getPagedInCount();
-				pOut = globalMem->getPagedOutCount();
-			}
+// 			if (globalMem) {
+// 				totalMem = globalMem->getMemorySize();
+// 				usedMem = globalMem->getUsedMemory();
+// 				freeMem = globalMem->getFreeMemory();
+// 				pIn = globalMem->getPagedInCount();
+// 				pOut = globalMem->getPagedOutCount();
+// 			}
 
-			// 3. Print the Output Table
-			cout << "\n" << string(60, '=') << endl;
-			cout << "  VMSTAT (Virtual Memory Statistics)" << endl;
-			cout << string(60, '=') << endl;
+// 			// 3. Print the Output Table
+// 			cout << "\n" << string(60, '=') << endl;
+// 			cout << "  VMSTAT (Virtual Memory Statistics)" << endl;
+// 			cout << string(60, '=') << endl;
 			
-			cout << "Total Memory:       " << totalMem << " KB" << endl;
-			cout << "Used Memory:        " << usedMem << " KB" << endl;
-			cout << "Free Memory:        " << freeMem << " KB" << endl;
-			cout << "Idle CPU Ticks:     " << idle << endl;
-			cout << "Active CPU Ticks:   " << active << endl;
-			cout << "Total CPU Ticks:    " << totalTicks << endl;
-			cout << "Num Paged In:       " << pIn << endl;
-			cout << "Num Paged Out:      " << pOut << endl;
-			cout << string(60, '=') << endl;
-		}else if (cmd[0] == "exit") {
-			cout << "Returning home..." << endl;
-			break;
-		} else {
-			cout << "Unknown command inside process screen." << endl;
-		}
+// 			cout << "Total Memory:       " << totalMem << " KB" << endl;
+// 			cout << "Used Memory:        " << usedMem << " KB" << endl;
+// 			cout << "Free Memory:        " << freeMem << " KB" << endl;
+// 			cout << "Idle CPU Ticks:     " << idle << endl;
+// 			cout << "Active CPU Ticks:   " << active << endl;
+// 			cout << "Total CPU Ticks:    " << totalTicks << endl;
+// 			cout << "Num Paged In:       " << pIn << endl;
+// 			cout << "Num Paged Out:      " << pOut << endl;
+// 			cout << string(60, '=') << endl;
+// 		}else if (cmd[0] == "exit") {
+// 			cout << "Returning home..." << endl;
+// 			break;
+// 		} else {
+// 			cout << "Unknown command inside process screen." << endl;
+// 		}
       
-	}
+// 	}
+// }
+
+void Dispatcher::printProcessSMI() {
+    double totalMemKB = 0.0;
+    double usedMemKB = 0.0;
+    double utilPercent = 0.0;
+
+    if (globalMem) {
+        // Assuming memory size is in Bytes, convert to KB
+        totalMemKB = static_cast<double>(globalMem->getMemorySize()) / 1024.0;
+        usedMemKB = static_cast<double>(globalMem->getUsedMemory()) / 1024.0;
+        
+        if (totalMemKB > 0) {
+            utilPercent = (usedMemKB / totalMemKB) * 100.0;
+        }
+    }
+
+    cout << "\n--------------------------------------------" << endl;
+    cout << "| PROCESS-SMI V2.0  |  MEMORY MONITOR      |" << endl;
+    cout << "--------------------------------------------" << endl;
+    
+    cout << "Memory Usage: " << usedMemKB << " KiB / " << totalMemKB << " KiB" << endl;
+    cout << "Memory Util:  " << utilPercent << "%" << endl;
+    cout << "--------------------------------------------" << endl;
+    cout << "Running processes and memory usage:" << endl;
+
+    // Iterate Running Processes on Cores
+    {
+        lock_guard<mutex> lock(coreMtx); // Lock cores to read currentProc safely
+        bool noneRunning = true;
+
+        for (int i = 0; i < nCores; i++) {
+            if (i >= (int)currentProc.size()) break;
+
+            auto p = currentProc[i];
+            if (p != nullptr) {
+                noneRunning = false;
+                
+                double procMemKB = 0.0;
+                if (globalMem) {
+                    // Convert specific process usage to KB
+                    procMemKB = static_cast<double>(globalMem->getProcessMemoryUsage(p->pid)) / 1024.0;
+                }
+
+                // Output Format: [Core ID] ProcessName (ID) Memory
+                cout << p->pname << " (ID: " << p->pid << ") \t" 
+                     << procMemKB << " KiB" << endl;
+            }
+        }
+
+        if (noneRunning) {
+            cout << "[No processes currently running on cores]" << endl;
+        }
+    }
+    
+    cout << "--------------------------------------------" << endl;
+    cout << "============================================" << endl;
+}
+
+void Dispatcher::printVMStat() {
+    long long active = activeTicks.load();
+    long long idle = idleTicks.load();
+    long long totalTicks = active + idle;
+
+    size_t totalMem = 0; 
+    size_t usedMem = 0;
+    size_t freeMem = 0;
+    int pIn = 0;
+    int pOut = 0;
+
+    if (globalMem) {
+        totalMem = globalMem->getMemorySize();
+        usedMem = globalMem->getUsedMemory();
+        freeMem = globalMem->getFreeMemory();
+        pIn = globalMem->getPagedInCount();
+        pOut = globalMem->getPagedOutCount();
+    }
+
+    cout << "\n" << string(60, '=') << endl;
+    cout << "  VMSTAT (Virtual Memory Statistics)" << endl;
+    cout << string(60, '=') << endl;
+    cout << "Total Memory:       " << totalMem << " KB" << endl;
+    cout << "Used Memory:        " << usedMem << " KB" << endl;
+    cout << "Free Memory:        " << freeMem << " KB" << endl;
+    cout << "Idle CPU Ticks:     " << idle << endl;
+    cout << "Active CPU Ticks:   " << active << endl;
+    cout << "Total CPU Ticks:    " << totalTicks << endl;
+    cout << "Num Paged In:       " << pIn << endl;
+    cout << "Num Paged Out:      " << pOut << endl;
+    cout << string(60, '=') << endl;
 }
 
 void Dispatcher::ls() {
