@@ -178,7 +178,9 @@ Instruction Process::getInstruction() {
 }
 
 bool Process::isFinished() {
-	return pc >= static_cast<size_t>(totalInstr);
+   if(pc >= static_cast<size_t>(totalInstr) || state == ProcessState::FINISHED)
+      return true;
+   return false;
 }
 
 bool Process::hasInstructions() {
