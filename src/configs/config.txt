@@ -4,6 +4,6 @@ quantum_cycles 10
 batch_process_freq 1000
 min_ins 30
 max_ins 300
-delays_per_exec 100
+delays_per_exec 2000
 max_overall_mem 64
 mem_per_frame 4

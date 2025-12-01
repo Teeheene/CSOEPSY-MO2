@@ -318,8 +318,8 @@ void Dispatcher::enterProcessScreen(string procName) {
 			double utilPercent = 0.0;
 
 			if (globalMem) {
-				totalMemMB = static_cast<double>(globalMem->getMemorySize()) / 1024.0;
-				usedMemMB = static_cast<double>(globalMem->getUsedMemory()) / 1024.0;
+				totalMemMB = static_cast<double>(globalMem->getMemorySize());
+				usedMemMB = static_cast<double>(globalMem->getUsedMemory());
 				
 				if (totalMemMB > 0) {
 					utilPercent = (usedMemMB / totalMemMB) * 100.0;
@@ -330,7 +330,7 @@ void Dispatcher::enterProcessScreen(string procName) {
 			cout << "\n--------------------------------------------" << endl;
 			cout << "| PROCESS-SMI V2.0  |  MEMORY MONITOR      |" << endl;
 			cout << "--------------------------------------------" << endl;
-			printf("Memory Usage: %.2f MiB / %.2f MiB\n", usedMemMB, totalMemMB);
+			printf("Memory Usage: %.2f KiB / %.2f KiB\n", usedMemMB, totalMemMB);
 			printf("Memory Util:  %.2f%%\n", utilPercent);
 			cout << "--------------------------------------------" << endl;
 			cout << "Running processes and memory usage:" << endl;
@@ -347,12 +347,12 @@ void Dispatcher::enterProcessScreen(string procName) {
 						// Get memory for this specific process
 						double procMemMB = 0.0;
 						if (globalMem) {
-							procMemMB = static_cast<double>(globalMem->getProcessMemoryUsage(p->pid)) / 1024.0;
+							procMemMB = static_cast<double>(globalMem->getProcessMemoryUsage(p->pid));
 						}
 
 						// Print Format: Name + ID + Usage
 						cout << p->pname << " (ID: " << p->pid << ") \t" 
-							<< procMemMB << " MiB" << endl;
+							<< procMemMB << " KiB" << endl;
 					}
 				}
 
