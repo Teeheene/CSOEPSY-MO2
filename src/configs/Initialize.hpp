@@ -20,7 +20,7 @@ struct Config
 bool Config::loadFile()
 {
     std::ifstream file;
-    file.open("src/configs/config.txt");
+    file.open("configs/config.txt");
 	 if (!file.is_open()) {
         std::cerr << "[Error] Could not open config.txt" << std::endl;
         return false;
