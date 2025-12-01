@@ -34,6 +34,8 @@ private:
 
     std::mutex memMtx;
 
+    std::unordered_map<int, int> residentSetSize;
+
 public:
     MemoryManager(size_t memSize, size_t fSize) : memorySize(memSize), frameSize(fSize) {
         numFrames = memorySize / frameSize;
@@ -62,6 +64,9 @@ public:
                 frameOwner.erase(frame);
             }
         }
+
+        residentSetSize.erase(pid);
+
         pageTables.erase(pid);
         backingStore.erase(pid);
     }
@@ -95,6 +100,12 @@ public:
         } else {
             return mainMemory[physAddr];
         }
+    }
+
+    size_t getProcessMemoryUsage(int pid) {
+        std::lock_guard<std::mutex> lock(memMtx);
+        if (residentSetSize.find(pid) == residentSetSize.end()) return 0;
+        return residentSetSize[pid] * frameSize;
     }
 
     // Helper: Calculate total memory usage for logging
@@ -149,6 +160,8 @@ private:
             mainMemory[startAddr + i] = data[i];
         }
 
+        residentSetSize[pid]++;
+
         // Update Page Table
         pageTables[pid][pageNum].frameNumber = frameToUse;
         pageTables[pid][pageNum].valid = true;
@@ -161,7 +174,6 @@ private:
     void evictPage(int pid, int pageNum, int frameNum) {
         numPagedOut++;
 
-        // Copy data from RAM to Backing Store
         int startAddr = frameNum * frameSize;
         std::vector<uint16_t> data(frameSize);
         
@@ -171,10 +183,13 @@ private:
         
         backingStore[pid][pageNum] = data;
 
-        // Mark Invalid in Page Table
         if (pageTables.count(pid) && pageTables[pid].count(pageNum)) {
             pageTables[pid][pageNum].valid = false;
             pageTables[pid][pageNum].frameNumber = -1;
+        }
+
+        if (residentSetSize.find(pid) != residentSetSize.end()) {
+            residentSetSize[pid]--;
         }
     }
 };

@@ -149,6 +149,7 @@ void Dispatcher::coreLoop(int id) {
 			lock_guard<mutex> lock(queueMtx);
 			finishedQueue.push(proc);
 			proc->state = ProcessState::FINISHED;
+			if(globalMem) globalMem->deallocateMemory(proc->pid);
 
 		} else {
 			for(int i = 0; i < quantum && !proc->isFinished() &&
@@ -291,26 +292,56 @@ void Dispatcher::enterProcessScreen(string procName) {
 		if(cmd.empty()) continue;
 
 		if (cmd[0] == "process-smi") {
-			int pc;
-			int totalInstr;
+			// Calculate Global Memory Stats
+			double totalMemMB = 0.0;
+			double usedMemMB = 0.0;
+			double utilPercent = 0.0;
 
-        	{
-				lock_guard<mutex> lock1(proc->mtx);
-            pc = proc->pc;
-         	totalInstr = proc->totalInstr;
-        	}
+			if (globalMem) {
+				totalMemMB = static_cast<double>(globalMem->getMemorySize()) / 1024.0;
+				usedMemMB = static_cast<double>(globalMem->getUsedMemory()) / 1024.0;
+				
+				if (totalMemMB > 0) {
+					utilPercent = (usedMemMB / totalMemMB) * 100.0;
+				}
+			}
 
-        	cout << "================ PROCESS SCREEN ================" << endl;
-        	cout << "Process: " << proc->pname << "\nID: " << proc->pid 
-				<< endl;
-      	cout << "\nLogs:\n";
-			cout << proc->toStringLogs();
+			// Print Header
+			cout << "\n--------------------------------------------" << endl;
+			cout << "| PROCESS-SMI V2.0  |  MEMORY MONITOR      |" << endl;
+			cout << "--------------------------------------------" << endl;
+			printf("Memory Usage: %.2f MiB / %.2f MiB\n", usedMemMB, totalMemMB);
+			printf("Memory Util:  %.2f%%\n", utilPercent);
+			cout << "--------------------------------------------" << endl;
+			cout << "Running processes and memory usage:" << endl;
 
-        	cout << "\nInstructions Status: " << pc << " / " << totalInstr << endl;
+			// Iterate Running Processes (Requires Core Lock)
+			{
+				lock_guard<mutex> lock(coreMtx);
+				bool noneRunning = true;
 
-			if(proc->isFinished())
-			cout << "Finished!" << endl;
-			cout << "================================================" << endl;
+				for (const auto& p : currentProc) {
+					if (p != nullptr) {
+						noneRunning = false;
+						
+						// Get memory for this specific process
+						double procMemMB = 0.0;
+						if (globalMem) {
+							procMemMB = static_cast<double>(globalMem->getProcessMemoryUsage(p->pid)) / 1024.0;
+						}
+
+						// Print Format: Name + ID + Usage
+						cout << p->pname << " (ID: " << p->pid << ") \t" 
+							<< procMemMB << " MiB" << endl;
+					}
+				}
+
+				if (noneRunning) {
+					cout << "[No processes currently running on cores]" << endl;
+				}
+			}
+			cout << "--------------------------------------------" << endl;
+
 		} else if (cmd[0] == "vmstat") {
 			long long active = activeTicks.load();
 			long long idle = idleTicks.load();
