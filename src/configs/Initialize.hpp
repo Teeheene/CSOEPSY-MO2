@@ -22,7 +22,7 @@ struct Config
 bool Config::loadFile()
 {
     std::ifstream file;
-    file.open("configs/config.txt");
+    file.open("src/configs/config.txt");
 	 if (!file.is_open()) {
         std::cerr << "[Error] Could not open config.txt" << std::endl;
         return false;
@@ -117,7 +117,7 @@ bool Config::loadFile()
             else
                 error = 10;
         }
-        else if (key == "min-mem-per-proc")
+        else if (key == "min_mem_per_proc")
         {
             long long int val = std::stoll(value);
             if (val >= 64 && val <= 2<<16) 
@@ -125,13 +125,13 @@ bool Config::loadFile()
             else
                 error = 11;
         }
-        else if (key == "max-mem-per-proc")
+        else if (key == "max_mem_per_proc")
         {
             long long int val = std::stoll(value);
             if (val >= 64 && val <= 2<<16) 
                 maxMemPerProc = val;
             else
-                error = 11;
+                error = 12;
         }
         else
         {
@@ -167,7 +167,6 @@ bool Config::loadFile()
             case 8:
                 std::cerr << "[Error] delays_per_exec out of range" << std::endl;
                 break;
-            
             case 9:
                 std::cerr << "[Error] max_overall_mem out of range" << std::endl;
                 break;
@@ -198,6 +197,6 @@ void Config::print() const
     std::cout << "delayExec: " << delayExec << "\n";
     std::cout << "maxOverallMem: " << maxOverallMem << "\n";
     std::cout << "memPerFrame: " << memPerFrame << "\n";
-    std::cout << "minMemPerProc" << minMemPerProc << "\n";
+    std::cout << "minMemPerProc: " << minMemPerProc << "\n";
     std::cout << "maxMemPerProc: " << maxMemPerProc << "\n \n";
 }

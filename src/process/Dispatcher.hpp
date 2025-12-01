@@ -79,7 +79,7 @@ public:
 	shared_ptr<Process> searchProcess(string);
 	
 	//feats
-	void startTest();
+	void startTest(int,int);
 	void stopTest();
 	void enterProcessScreen(string);
 	void ls();
@@ -452,12 +452,12 @@ void Dispatcher::ls() {
 	cout << "==============================================================" << endl;
 }
 
-void Dispatcher::startTest() {
+void Dispatcher::startTest(int min, int max) {
 	cout << "Test Started." << endl;
 	test = true;
-	testThread = thread([&]() {
+	testThread = thread([=]() {
 		while(test) {
-			shared_ptr<Process> p = createRandomProcess(minIns, maxIns);
+			shared_ptr<Process> p = createRandomProcess(minIns, maxIns, min, max);
 			addProcess(p);
 			this_thread::sleep_for(chrono::milliseconds(batchFreq));
 		}

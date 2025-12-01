@@ -94,12 +94,19 @@ string generateScript(int minIns, int maxIns) {
 }
 
 // Create Process
-shared_ptr<Process> createRandomProcess(int minIns, int maxIns) {
-    auto p = make_shared<Process>();
-    string script = generateScript(minIns, maxIns);
+shared_ptr<Process> createRandomProcess(int minIns, int maxIns, 
+      int minMem, int maxMem = -1) {
+   string script = generateScript(minIns, maxIns);
 
-    //cout << "\n=== GENERATED SCRIPT ===\n" << script << "\n=========================\n";
+   cout << "DEBUG" << script << endl << endl; 
 
-    p->decode(script);
-    return p;
+   int mem = 0;
+   if(maxMem == -1)
+      mem = minMem;
+   else
+      mem = rndInt(minMem, maxMem);  
+
+   auto p = make_shared<Process>("", mem);
+   p->decode(script);
+   return p;
 }

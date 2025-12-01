@@ -51,9 +51,11 @@ public:
 			pname = "PROC-" + to_string(pid);
 		}
 
+      /*
 		cout << "[DEBUG] Process Created | Name: " << pname 
          << " | ID: " << pid 
          << " | Memory Limit: " << memLimit << endl;
+         */
 
 		if (globalMem) {
 			globalMem->allocateMemory(pid, memory_limit);
@@ -185,24 +187,6 @@ bool Process::hasInstructions() {
 	return true;
 }
 
-void Process::smi() {
-	cout << "Process name: " << pname << endl;
-	cout << "ID: " << pid << endl;
-
-	cout << "Logs: " << endl;
-
-	{
-		lock_guard<mutex> lock(logMtx);
-		for(auto l : logHistory) {
-			l.print();
-		}
-	}
-
-	cout << endl; 
-	cout << "Current instruction line: " << pc << endl;
-	cout << "Lines of code: " << totalInstr << endl;
-}
-
 // checks to see if its a variable or value
 // and returns a value
 uint16_t Process::processArg(const string& arg) {
@@ -248,6 +232,8 @@ int Process::countInstructions(const vector<Instruction> &instrs) {
 void Process::decode(const string& src) {
 	stringstream ss(src);
 	string instr;
+
+   cout << "DEBUG: " << src << endl;
 
 	while(getline(ss, instr, ';')) {
 		trim(instr);

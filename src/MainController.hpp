@@ -15,6 +15,7 @@ public:
 		Dispatcher dispatcher;
 		thread t;
 		int minIns, maxIns;
+      int minMem, maxMem;
 
 		while (running)
 		{
@@ -41,6 +42,9 @@ public:
 
 						minIns = cfg.minIns;
 						maxIns = cfg.maxIns;
+                  minMem = cfg.minMemPerProc;
+                  maxMem = cfg.maxMemPerProc;
+
 						std::cout << "scheduler started successfully.\n\n";
 						initialized = true;
 						
@@ -81,18 +85,19 @@ public:
                         if(mem >= 64 && mem <= 65536) { 
                            //update create random process to contain 
                            //name and mem size
-                           shared_ptr<Process> p = createRandomProcess(minIns, maxIns);
+                           shared_ptr<Process> p = createRandomProcess(minIns, 
+                                 maxIns, mem);
                            dispatcher.addProcess(p);
                            dispatcher.enterProcessScreen(p->pname);
                         } else {
-                           cout << "invalid memory allocation" << endl;
+                           cout << "invalid memory allocation\n" << endl;
                         }
 
                      } catch (const std::exception& e) {
-                        cout << "invalid memory allocation" << endl;
+                        cout << "invalid memory allocation\n" << endl;
                      }
 					   } else {
-                     cout << "Missing arguments: screen -s <name> <mem-size>";
+                     cout << "Missing arguments: screen -s <name> <mem-size>\n";
 						}
 					}
 					else if(cmd[1] == "-r") {
@@ -127,7 +132,7 @@ public:
 				}
 				else if (cmd[0] == "scheduler-start" || cmd[0] == "scheduler-test")
 				{
-					dispatcher.startTest();
+					dispatcher.startTest(minMem, maxMem);
 				}
 				else if (cmd[0] == "scheduler-stop")
 				{
