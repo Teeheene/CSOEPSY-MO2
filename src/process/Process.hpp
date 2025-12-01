@@ -233,7 +233,7 @@ void Process::decode(const string& src) {
 	stringstream ss(src);
 	string instr;
 
-   cout << "DEBUG: " << src << endl;
+   // cout << "DEBUG: " << src << endl;
 
 	while(getline(ss, instr, ';')) {
 		trim(instr);

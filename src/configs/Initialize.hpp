@@ -22,7 +22,7 @@ struct Config
 bool Config::loadFile()
 {
     std::ifstream file;
-    file.open("src/configs/config.txt");
+    file.open("configs/config.txt");
 	 if (!file.is_open()) {
         std::cerr << "[Error] Could not open config.txt" << std::endl;
         return false;
@@ -104,7 +104,7 @@ bool Config::loadFile()
         else if (key == "max_overall_mem")
         {
             long long int val = std::stoll(value);
-            if (val >= 64 && val <= 2<<16) 
+            if (val >= 1 && val <= 2<<16) 
                 maxOverallMem = val;
             else
                 error = 9;
@@ -112,7 +112,7 @@ bool Config::loadFile()
         else if (key == "mem_per_frame")
         {
             long long int val = std::stoll(value);
-            if (val >= 64 && val <= 2<<16) 
+            if (val >= 1 && val <= 2<<16) 
                 memPerFrame = val;
             else
                 error = 10;
@@ -120,7 +120,7 @@ bool Config::loadFile()
         else if (key == "min_mem_per_proc")
         {
             long long int val = std::stoll(value);
-            if (val >= 64 && val <= 2<<16) 
+            if (val >= 1 && val <= 2<<16) 
                 minMemPerProc = val;
             else
                 error = 11;
@@ -128,7 +128,7 @@ bool Config::loadFile()
         else if (key == "max_mem_per_proc")
         {
             long long int val = std::stoll(value);
-            if (val >= 64 && val <= 2<<16) 
+            if (val >= 1 && val <= 2<<16) 
                 maxMemPerProc = val;
             else
                 error = 12;
