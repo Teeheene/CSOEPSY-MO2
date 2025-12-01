@@ -73,32 +73,56 @@ public:
 					}
 					else if (cmd[1] == "-s")
 					{
-						if (cmd.size() == 2)
+                  //screen -s PROC-1 120
+						if (cmd.size() == 4)
 						{
-							shared_ptr<Process> p = createRandomProcess(minIns, maxIns);
-							dispatcher.addProcess(p);
-							dispatcher.enterProcessScreen(p->pname);
-						}
-						else
-						{
-							dispatcher.addProcess(createRandomProcess(minIns, maxIns));
-							dispatcher.enterProcessScreen(cmd[2]);
+                     try {
+                        int mem = stoi(cmd[3]); //memsize
+                        if(mem >= 64 && mem <= 65536) { 
+                           //update create random process to contain 
+                           //name and mem size
+                           shared_ptr<Process> p = createRandomProcess(minIns, maxIns);
+                           dispatcher.addProcess(p);
+                           dispatcher.enterProcessScreen(p->pname);
+                        } else {
+                           cout << "invalid memory allocation" << endl;
+                        }
+
+                     } catch (const std::exception& e) {
+                        cout << "invalid memory allocation" << endl;
+                     }
+					   } else {
+                     cout << "Missing arguments: screen -s <name> <mem-size>";
 						}
 					}
-					else if (cmd[1] == "-r")
-					{
-						if (cmd.size() == 2)
-						{
+					else if(cmd[1] == "-r") {
+						if (cmd.size() == 2) 
 							cout << "Missing argument: Process Name" << endl;
-						}
 						else
-						{
 							dispatcher.enterProcessScreen(cmd[2]);
-						}
 					}
-					else if (cmd[1] == "-ls") {
+					else if(cmd[1] == "-ls") 
 						dispatcher.ls();
-					}
+               else if(cmd[1] == "-c") {
+                  //screen -c PROC-1 64 "instr"
+                  if (cmd.size() >= 4) {
+                     try {
+                        int mem = stoi(cmd[3]);
+                        if(mem >= 64 && mem <= 65536) {
+                           shared_ptr<Process> p;
+                           p->decode(cmd[4]);
+                           dispatcher.enterProcessScreen(p->pname);
+                        } else {
+                           cout << "invalid memory allocation" << endl;
+                        }
+                     } catch (const exception& e) {
+                        cout << "invalid memory allocation" << endl;
+                     }
+					   } else {
+                     cout << "Missing arguments: screen -c <name>"
+                        << " \"<instructions>\"" << endl;
+						}
+               }
 				}
 				else if (cmd[0] == "scheduler-start" || cmd[0] == "scheduler-test")
 				{

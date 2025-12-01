@@ -45,13 +45,38 @@ vector<string> tokenizeInput(string input)
 	vector<std::string> tokens;
 	string token{""};
 
+   bool inQuotes = false;
+   bool printInstr = false;
+
 	if (input.empty())
 		return {};
 
 	for (char ch : input)
 	{
+      //special case for instructions
+      if(ch == '"' && !inQuotes) {
+         inQuotes = true;
+         token = "";
+         continue;
+      } 
+      if(ch == '\\' && inQuotes && !printInstr) {
+         printInstr = true;
+         continue;
+      }
+      if(ch == '"' && printInstr) {
+         printInstr = false;
+         continue;
+      }
+
+      if(ch == '"' && inQuotes && !printInstr) {
+         inQuotes = false;
+         tokens.push_back(token);
+         token = "";
+         continue;
+      }
+
 		// if its not a space
-		if (!isspace(static_cast<unsigned char>(ch)))
+		if (!isspace(static_cast<unsigned char>(ch)) || inQuotes)
 		{
 			token += ch;
 		}

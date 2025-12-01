@@ -17,9 +17,9 @@
 #include <random>
 #include <fstream>
 #include <memory>
-
-//temp
-#include <iomanip>
+#include <map>
+#include <deque>
+#include <cmath>
 
 using namespace std;
 bool running = true;

@@ -19,7 +19,7 @@ public:
 	int pid;
 	string pname;
 	size_t pc = 0;
-	int totalInstr;
+	int totalInstr = 0;
 	bool sleeping = false;
 	vector<ProcessLogEntry> logHistory;
 	ProcessState state;
