@@ -20,6 +20,7 @@
 #include <map>
 #include <deque>
 #include <cmath>
+#include <fstream>
 
 using namespace std;
 bool running = true;

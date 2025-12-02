@@ -10,7 +10,7 @@ string generateInstr(int &budget, int depth = 0) {
     if (budget <= 0) return "";
 
     //read and write is not generated during stress tests
-    vector<string> ops = {"PRINT", "DECLARE", "ADD", "SUBTRACT, SLEEP, WRITE"};
+    vector<string> ops = {"PRINT", "DECLARE", "ADD", "SUBTRACT" , "SLEEP", "WRITE"};
     vector<string> vars = {
     "V01", "V02", "V03", "V04", "V05", "V06", "V07", "V08", "V09", "V10", 
     "V11", "V12", "V13", "V14", "V15", "V16", "V17", "V18", "V19", "V20"

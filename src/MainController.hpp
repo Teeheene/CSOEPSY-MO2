@@ -138,11 +138,9 @@ public:
 				{
 					dispatcher.stopTest();
 				}
-				else if (cmd[0] == "report-util")
+				else if (cmd[0] == "backing-store")
 				{
-					//implement below :>
-					//handleReportCommand(dispatcher.;
-					cout << "report file created at ./csopesy-log.txt" << endl;
+					dispatcher.backingstore();
 				}
 				else if (cmd[0] == "process-smi")
 				{

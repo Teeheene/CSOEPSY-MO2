@@ -85,6 +85,7 @@ public:
 	void ls();
 	void printProcessSMI();
 	void printVMStat();
+	void backingstore();
 
 private:
 	void coreLoop(int);
@@ -496,6 +497,99 @@ void Dispatcher::printVMStat() {
     cout << "Num Paged In:       " << pIn << endl;
     cout << "Num Paged Out:      " << pOut << endl;
     cout << string(60, '=') << endl;
+}
+
+void Dispatcher::backingstore() {
+    ofstream file("csopesy-backing-store.txt");
+    
+    if (!file.is_open()) {
+        cout << "[Error] Could not create csopesy-backing-store.txt" << endl;
+        return;
+    }
+    
+    double totalMemKB = 0.0;
+    double usedMemKB = 0.0;
+    double utilPercent = 0.0;
+
+    if (globalMem) {
+        totalMemKB = static_cast<double>(globalMem->getMemorySize()) / 1024.0;
+        usedMemKB = static_cast<double>(globalMem->getUsedMemory()) / 1024.0;
+        
+        if (totalMemKB > 0) {
+            utilPercent = (usedMemKB / totalMemKB) * 100.0;
+        }
+    }
+
+    file << "--------------------------------------------" << endl;
+    file << "| PROCESS-SMI V2.0  |  BACKING STORE DUMP  |" << endl;
+    file << "--------------------------------------------" << endl;
+    
+    file << "Memory Usage: " << usedMemKB << " KiB / " << totalMemKB << " KiB" << endl;
+    file << "Memory Util:  " << utilPercent << "%" << endl;
+    file << "--------------------------------------------" << endl;
+    file << "Running processes and memory usage:" << endl;
+    {
+        lock_guard<mutex> lock(coreMtx); 
+        bool noneRunning = true;
+
+        for (int i = 0; i < nCores; i++) {
+            if (i >= (int)currentProc.size()) break;
+
+            auto p = currentProc[i];
+            if (p != nullptr) {
+                noneRunning = false;
+                
+                double procMemKB = 0.0;
+                if (globalMem) {
+                    procMemKB = static_cast<double>(globalMem->getProcessMemoryUsage(p->pid)) / 1024.0;
+                }
+
+                file << p->pname << " (ID: " << p->pid << ") \t" 
+                     << procMemKB << " KiB" << endl;
+            }
+        }
+
+        if (noneRunning) {
+            file << "[No processes currently running on cores]" << endl;
+        }
+    }
+    
+    file << "--------------------------------------------" << endl;
+    file << "============================================" << endl;
+
+    long long active = activeTicks.load();
+    long long idle = idleTicks.load();
+    long long totalTicks = active + idle;
+
+    size_t totalMem = 0; 
+    size_t usedMem = 0;
+    size_t freeMem = 0;
+    int pIn = 0;
+    int pOut = 0;
+
+    if (globalMem) {
+        totalMem = globalMem->getMemorySize();
+        usedMem = globalMem->getUsedMemory();
+        freeMem = globalMem->getFreeMemory();
+        pIn = globalMem->getPagedInCount();
+        pOut = globalMem->getPagedOutCount();
+    }
+
+    file << "\n" << string(60, '=') << endl;
+    file << "  VMSTAT (Virtual Memory Statistics)" << endl;
+    file << string(60, '=') << endl;
+    file << "Total Memory:       " << totalMem << " KB" << endl;
+    file << "Used Memory:        " << usedMem << " KB" << endl;
+    file << "Free Memory:        " << freeMem << " KB" << endl;
+    file << "Idle CPU Ticks:     " << idle << endl;
+    file << "Active CPU Ticks:   " << active << endl;
+    file << "Total CPU Ticks:    " << totalTicks << endl;
+    file << "Num Paged In:       " << pIn << endl;
+    file << "Num Paged Out:      " << pOut << endl;
+    file << string(60, '=') << endl;
+
+    file.close();
+    cout << "Success: Memory snapshot saved to 'csopesy-backing-store.txt'" << endl;
 }
 
 void Dispatcher::ls() {
